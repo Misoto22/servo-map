@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { StationWithDistance, FuelType } from "@servo-map/shared";
 import { FUEL_TYPES } from "@servo-map/shared";
 import { PriceTag } from "@/components/stations/PriceTag";
@@ -33,7 +34,7 @@ export function SuburbPageClient({
       {/* Header */}
       <header className="border-b border-border-subtle">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
-          <a
+          <Link
             href="/"
             className="flex items-center gap-2 text-text-secondary hover:text-text transition-colors"
           >
@@ -42,7 +43,7 @@ export function SuburbPageClient({
               <path d="M12 19l-7-7 7-7" />
             </svg>
             <span className="text-sm">Map</span>
-          </a>
+          </Link>
         </div>
       </header>
 
@@ -154,12 +155,12 @@ export function SuburbPageClient({
               Prices sourced from state government APIs. Updated every 15
               minutes.
             </p>
-            <a
+            <Link
               href="/"
               className="text-ochre hover:text-ochre-dim transition-colors"
             >
               ServoMap &mdash; Find cheap fuel across Australia
-            </a>
+            </Link>
           </div>
         </div>
       </footer>

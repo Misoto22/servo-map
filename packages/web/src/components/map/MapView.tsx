@@ -10,6 +10,7 @@ import Map, {
 import type { StationWithDistance, FuelType } from "@servo-map/shared";
 import { priceColorHex, getFuelPrice, formatPriceCents } from "@/lib/utils";
 import { useTheme } from "@/providers/ThemeProvider";
+import { usePriceRange } from "@/providers/PriceRangeProvider";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
@@ -43,6 +44,7 @@ export function MapView({
 }: MapViewProps) {
   const mapRef = useRef<MapRef>(null);
   const { theme } = useTheme();
+  const range = usePriceRange();
   const [ready, setReady] = useState(false);
 
   const mapStyle =
@@ -106,7 +108,7 @@ export function MapView({
             if (!fp) return null;
 
             const isActive = activeStationId === station.id;
-            const color = priceColorHex(fp.price);
+            const color = priceColorHex(fp.price, range);
 
             return (
               <Marker

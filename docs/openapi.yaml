@@ -9,7 +9,7 @@ info:
 
 servers:
   - url: https://api.servo-map.com/api/v1
-    description: Production
+    description: Production (api.servo-map.com)
   - url: http://localhost:8787/api/v1
     description: Local development
 

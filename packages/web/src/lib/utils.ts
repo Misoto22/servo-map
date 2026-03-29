@@ -1,17 +1,37 @@
 import type { FuelPrice } from "@servo-map/shared";
 
+// --- 价格颜色基于百分位动态计算 ---
+
+export interface PriceRange {
+  /** 低于此值为 cheap（绿色），P33 */
+  cheapBelow: number;
+  /** 低于此值为 mid（黄色），P66 */
+  midBelow: number;
+}
+
 /**
- * 根据价格返回对应的颜色 class（绿=便宜, 黄=中等, 红=贵）
+ * 从一组价格中计算百分位阈值
+ * 底部 33% = cheap, 中间 33% = mid, 顶部 33% = expensive
  */
-export function priceColorClass(price: number): string {
-  if (price < 260) return "text-price-cheap";
-  if (price < 290) return "text-price-mid";
+export function computePriceRange(prices: number[]): PriceRange {
+  if (prices.length === 0) return { cheapBelow: 0, midBelow: 0 };
+  const sorted = [...prices].sort((a, b) => a - b);
+  const p33 = sorted[Math.floor(sorted.length * 0.33)] ?? sorted[0];
+  const p66 = sorted[Math.floor(sorted.length * 0.66)] ?? sorted[sorted.length - 1];
+  return { cheapBelow: p33, midBelow: p66 };
+}
+
+export function priceColorClass(price: number, range?: PriceRange): string {
+  if (!range) return "text-text";
+  if (price <= range.cheapBelow) return "text-price-cheap";
+  if (price <= range.midBelow) return "text-price-mid";
   return "text-price-expensive";
 }
 
-export function priceColorHex(price: number): string {
-  if (price < 260) return "#4ADE80";
-  if (price < 290) return "#FBBF24";
+export function priceColorHex(price: number, range?: PriceRange): string {
+  if (!range) return "#9B9489";
+  if (price <= range.cheapBelow) return "#4ADE80";
+  if (price <= range.midBelow) return "#FBBF24";
   return "#F87171";
 }
 

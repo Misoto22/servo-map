@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { StationWithDistance, FuelType } from "@servo-map/shared";
 import { PriceTag } from "@/components/stations/PriceTag";
+import { PriceRangeProvider } from "@/providers/PriceRangeProvider";
 import { timeAgo } from "@/lib/utils";
 
 interface Props {
@@ -14,11 +16,12 @@ export function StationPageClient({ station }: Props) {
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
 
   return (
+    <PriceRangeProvider stations={[station]} selectedFuel={selectedFuel}>
     <div className="min-h-screen bg-bg">
       {/* Header */}
       <header className="border-b border-border-subtle">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
-          <a
+          <Link
             href="/"
             className="flex items-center gap-2 text-text-secondary hover:text-text transition-colors"
           >
@@ -27,7 +30,7 @@ export function StationPageClient({ station }: Props) {
               <path d="M12 19l-7-7 7-7" />
             </svg>
             <span className="text-sm">Map</span>
-          </a>
+          </Link>
         </div>
       </header>
 

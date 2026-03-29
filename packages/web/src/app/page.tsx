@@ -10,6 +10,7 @@ import { StationDetail } from "@/components/stations/StationDetail";
 import { BottomSheet } from "@/components/layout/BottomSheet";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useStations } from "@/hooks/useStations";
+import { PriceRangeProvider } from "@/providers/PriceRangeProvider";
 
 // 悉尼 CBD 默认坐标
 const DEFAULT_LAT = -33.8688;
@@ -69,6 +70,7 @@ export default function Home() {
   }, [geo]);
 
   return (
+    <PriceRangeProvider stations={stations} selectedFuel={selectedFuel}>
     <main className="relative h-screen w-screen overflow-hidden">
       {/* 地图层 */}
       <MapView
@@ -138,5 +140,6 @@ export default function Home() {
         )}
       </BottomSheet>
     </main>
+    </PriceRangeProvider>
   );
 }

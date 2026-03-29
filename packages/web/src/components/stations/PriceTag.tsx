@@ -1,6 +1,7 @@
 "use client";
 
 import { cn, priceColorClass, formatPriceCents } from "@/lib/utils";
+import { usePriceRange } from "@/providers/PriceRangeProvider";
 
 interface PriceTagProps {
   cents: number;
@@ -15,6 +16,8 @@ export function PriceTag({
   showUnit = true,
   className,
 }: PriceTagProps) {
+  const range = usePriceRange();
+
   const sizeClasses = {
     sm: "text-sm",
     md: "text-lg",
@@ -27,7 +30,7 @@ export function PriceTag({
       className={cn(
         "font-display font-bold tabular-nums tracking-tight",
         sizeClasses[size],
-        priceColorClass(cents),
+        priceColorClass(cents, range),
         className,
       )}
     >
