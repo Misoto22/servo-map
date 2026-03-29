@@ -16,7 +16,7 @@ interface UseStationsOptions {
   lat?: number | null;
   lng?: number | null;
   radius?: number;
-  suburb?: string;
+  q?: string;
   limit?: number;
 }
 
@@ -51,7 +51,7 @@ export function useStations(opts: UseStationsOptions): UseStationsResult {
       params.set("lng", String(opts.lng));
       params.set("radius", String(opts.radius ?? 20));
     }
-    if (opts.suburb) params.set("suburb", opts.suburb);
+    if (opts.q) params.set("q", opts.q);
     params.set("limit", String(opts.limit ?? 200));
     if (opts.fuel) params.set("sort", "price_asc");
 
@@ -75,7 +75,7 @@ export function useStations(opts: UseStationsOptions): UseStationsResult {
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [opts.fuel, opts.lat, opts.lng, opts.radius, opts.suburb, opts.limit]);
+  }, [opts.fuel, opts.lat, opts.lng, opts.radius, opts.q, opts.limit]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);

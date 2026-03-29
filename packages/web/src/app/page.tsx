@@ -43,7 +43,7 @@ export default function Home() {
       lat: searchSuburb ? null : mapCenter.lat,
       lng: searchSuburb ? null : mapCenter.lng,
       radius: mapRadius,
-      suburb: searchSuburb || undefined,
+      q: searchSuburb || undefined,
       limit: 500,
     }),
     [selectedFuel, mapCenter.lat, mapCenter.lng, mapRadius, searchSuburb],

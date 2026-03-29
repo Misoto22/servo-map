@@ -26,6 +26,7 @@ stationsRoute.get("/", async (c) => {
   const stateParam = query.state?.split(",").filter(Boolean) as AustralianState[] | undefined;
   const brand = query.brand?.trim();
   const fuel = query.fuel as FuelType | undefined;
+  const q = query.q?.trim().toLowerCase();
   const suburb = query.suburb?.trim().toLowerCase();
   const postcode = query.postcode?.trim();
   const lat = query.lat ? parseFloat(query.lat) : undefined;
@@ -61,8 +62,13 @@ stationsRoute.get("/", async (c) => {
   if (fuel) {
     stations = stations.filter((s) => s.prices.some((p) => p.fuel === fuel));
   }
+  if (q) {
+    stations = stations.filter(
+      (s) => s.suburb.toLowerCase().includes(q) || s.postcode.startsWith(q),
+    );
+  }
   if (suburb) {
-    stations = stations.filter((s) => s.suburb.toLowerCase() === suburb);
+    stations = stations.filter((s) => s.suburb.toLowerCase().includes(suburb));
   }
   if (postcode) {
     stations = stations.filter((s) => s.postcode === postcode);
