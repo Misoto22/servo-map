@@ -5,7 +5,8 @@ import Link from "next/link";
 import type { StationWithDistance, FuelType } from "@servo-map/shared";
 import { FUEL_TYPES } from "@servo-map/shared";
 import { PriceTag } from "@/components/stations/PriceTag";
-import { cn, getFuelPrice, timeAgo, formatPriceCents } from "@/lib/utils";
+import { PriceRangeProvider } from "@/providers/PriceRangeProvider";
+import { cn, getFuelPrice, timeAgo } from "@/lib/utils";
 
 interface Props {
   suburbName: string;
@@ -30,6 +31,7 @@ export function SuburbPageClient({
   });
 
   return (
+    <PriceRangeProvider stations={stations} selectedFuel={selectedFuel}>
     <div className="min-h-screen bg-bg">
       {/* Header */}
       <header className="border-b border-border-subtle">
@@ -165,5 +167,6 @@ export function SuburbPageClient({
         </div>
       </footer>
     </div>
+    </PriceRangeProvider>
   );
 }

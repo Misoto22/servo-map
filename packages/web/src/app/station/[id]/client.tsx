@@ -100,5 +100,6 @@ export function StationPageClient({ station }: Props) {
         </div>
       </footer>
     </div>
+    </PriceRangeProvider>
   );
 }
