@@ -28,6 +28,7 @@ jobs:
           echo "${{ secrets.NSW_API_KEY }}" | npx wrangler secret put NSW_API_KEY --config packages/worker/wrangler.toml
           echo "${{ secrets.NSW_API_SECRET }}" | npx wrangler secret put NSW_API_SECRET --config packages/worker/wrangler.toml
           echo "${{ secrets.NSW_API_AUTH }}" | npx wrangler secret put NSW_API_AUTH --config packages/worker/wrangler.toml
+          echo "${{ secrets.QLD_API_TOKEN }}" | npx wrangler secret put QLD_API_TOKEN --config packages/worker/wrangler.toml
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
