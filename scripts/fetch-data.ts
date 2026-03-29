@@ -56,6 +56,36 @@ async function kvPut(key: string, value: string, retries = 3): Promise<void> {
   }
 }
 
+/** Bulk write KV pairs (max 10000 per request) */
+async function kvBulkWrite(
+  pairs: { key: string; value: string }[],
+): Promise<void> {
+  const accountId = requireEnv("CF_ACCOUNT_ID");
+  const namespaceId = requireEnv("CF_KV_NAMESPACE_ID");
+  const token = requireEnv("CF_API_TOKEN");
+
+  const CHUNK = 10000;
+  for (let i = 0; i < pairs.length; i += CHUNK) {
+    const chunk = pairs.slice(i, i + CHUNK);
+    const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${namespaceId}/bulk`;
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(chunk),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`KV bulk write failed: ${res.status} — ${body}`);
+    }
+    console.log(
+      `[fetch-data] Bulk wrote ${Math.min(i + CHUNK, pairs.length)}/${pairs.length} keys`,
+    );
+  }
+}
+
 async function kvGet(key: string): Promise<string | null> {
   const accountId = requireEnv("CF_ACCOUNT_ID");
   const namespaceId = requireEnv("CF_KV_NAMESPACE_ID");
@@ -374,18 +404,16 @@ async function main() {
   await kvPut(KV_KEYS.metadata, JSON.stringify(merged));
 
   // 写入单独的 station keys（用于 GET /stations/:id）
+  // Cloudflare KV REST API 限流严格，使用 bulk write API 一次最多 10000 对
   console.log(
-    `[fetch-data] Writing ${allStations.length} individual station keys...`,
+    `[fetch-data] Writing ${allStations.length} individual station keys via bulk API...`,
   );
-  const BATCH_SIZE = 10;
-  for (let i = 0; i < allStations.length; i += BATCH_SIZE) {
-    const batch = allStations.slice(i, i + BATCH_SIZE);
-    await Promise.all(
-      batch.map((s) =>
-        kvPut(KV_KEYS.stationById(s.id), JSON.stringify(s)),
-      ),
-    );
-  }
+  await kvBulkWrite(
+    allStations.map((s) => ({
+      key: KV_KEYS.stationById(s.id),
+      value: JSON.stringify(s),
+    })),
+  );
 
   console.log(
     `[fetch-data] Done: ${allStations.length} stations, ${brands.length} brands`,
