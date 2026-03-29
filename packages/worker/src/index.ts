@@ -15,11 +15,22 @@ app.get("/", (c) => c.json({ name: "servo-map-api", version: "1.0.0" }));
 
 // 手动触发 cron（调试用）
 app.get("/api/v1/cron", async (c) => {
+  const logs: string[] = [];
+  const origLog = console.log;
+  const origErr = console.error;
+  const origWarn = console.warn;
+  console.log = (...args: unknown[]) => logs.push(args.map(String).join(" "));
+  console.error = (...args: unknown[]) => logs.push("[ERROR] " + args.map(String).join(" "));
+  console.warn = (...args: unknown[]) => logs.push("[WARN] " + args.map(String).join(" "));
   try {
     await handleScheduled(c.env);
-    return c.json({ status: "success", message: "Cron executed" });
+    return c.json({ status: "success", logs });
   } catch (e) {
-    return c.json({ status: "error", message: String(e) }, 500);
+    return c.json({ status: "error", message: String(e), logs }, 500);
+  } finally {
+    console.log = origLog;
+    console.error = origErr;
+    console.warn = origWarn;
   }
 });
 
