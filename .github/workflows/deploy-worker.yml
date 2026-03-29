@@ -7,6 +7,7 @@ on:
       - packages/worker/**
       - packages/shared/**
       - .github/workflows/deploy-worker.yml
+  workflow_dispatch:
 
 jobs:
   deploy:
