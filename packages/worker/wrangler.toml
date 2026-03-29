@@ -1,6 +1,7 @@
 name = "servo-map-api"
 main = "src/index.ts"
 compatibility_date = "2025-03-29"
+routes = [{ pattern = "api.servo-map.com", custom_domain = true }]
 
 [[kv_namespaces]]
 binding = "KV"
