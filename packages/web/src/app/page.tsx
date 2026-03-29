@@ -15,7 +15,7 @@ import { PriceRangeProvider } from "@/providers/PriceRangeProvider";
 // 悉尼 CBD 默认坐标
 const DEFAULT_LAT = -33.8688;
 const DEFAULT_LNG = 151.2093;
-const DEFAULT_RADIUS = 15;
+const DEFAULT_RADIUS = 50;
 
 export default function Home() {
   const [selectedFuel, setSelectedFuel] = useState<FuelType>("U91");
@@ -41,7 +41,7 @@ export default function Home() {
       lng: searchSuburb ? null : queryLng,
       radius: DEFAULT_RADIUS,
       suburb: searchSuburb || undefined,
-      limit: 200,
+      limit: 500,
     }),
     [selectedFuel, queryLat, queryLng, searchSuburb],
   );
