@@ -15,7 +15,7 @@ import { PriceRangeProvider } from "@/providers/PriceRangeProvider";
 // 悉尼 CBD 默认坐标
 const DEFAULT_LAT = -33.8688;
 const DEFAULT_LNG = 151.2093;
-const DEFAULT_RADIUS = 50;
+const DEFAULT_RADIUS = 20;
 
 export default function Home() {
   const [selectedFuel, setSelectedFuel] = useState<FuelType>("U91");
@@ -25,25 +25,28 @@ export default function Home() {
   const [showDetail, setShowDetail] = useState(false);
   const [searchSuburb, setSearchSuburb] = useState<string>("");
 
+  // 地图视野中心 — 当用户拖动地图时更新
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({
+    lat: DEFAULT_LAT,
+    lng: DEFAULT_LNG,
+  });
+  const [mapRadius, setMapRadius] = useState(DEFAULT_RADIUS);
+
   const geo = useGeolocation();
 
   const userLocation =
     geo.lat && geo.lng ? { lat: geo.lat, lng: geo.lng } : null;
 
-  // 用用户位置或默认悉尼坐标查询附近站点
-  const queryLat = userLocation?.lat ?? DEFAULT_LAT;
-  const queryLng = userLocation?.lng ?? DEFAULT_LNG;
-
   const stationsOpts = useMemo(
     () => ({
       fuel: selectedFuel,
-      lat: searchSuburb ? null : queryLat,
-      lng: searchSuburb ? null : queryLng,
-      radius: DEFAULT_RADIUS,
+      lat: searchSuburb ? null : mapCenter.lat,
+      lng: searchSuburb ? null : mapCenter.lng,
+      radius: mapRadius,
       suburb: searchSuburb || undefined,
       limit: 500,
     }),
-    [selectedFuel, queryLat, queryLng, searchSuburb],
+    [selectedFuel, mapCenter.lat, mapCenter.lng, mapRadius, searchSuburb],
   );
 
   const { stations, loading, total } = useStations(stationsOpts);
@@ -69,6 +72,30 @@ export default function Home() {
     setSortBy("distance");
   }, [geo]);
 
+  // 地图移动后，用新的中心和可视范围重新查询
+  const handleMoveEnd = useCallback(
+    (bounds: { ne: [number, number]; sw: [number, number] }) => {
+      const centerLat = (bounds.ne[1] + bounds.sw[1]) / 2;
+      const centerLng = (bounds.ne[0] + bounds.sw[0]) / 2;
+
+      // 用对角线一半作为半径（粗略估算 km）
+      const dlat = bounds.ne[1] - bounds.sw[1];
+      const dlng = bounds.ne[0] - bounds.sw[0];
+      const approxKm = Math.sqrt(dlat * dlat + dlng * dlng) * 111 / 2;
+      const radius = Math.max(5, Math.min(approxKm, 200));
+
+      setMapCenter({ lat: centerLat, lng: centerLng });
+      setMapRadius(Math.round(radius));
+    },
+    [],
+  );
+
+  // 用户定位成功后，更新地图中心
+  const effectiveLat = userLocation?.lat ?? DEFAULT_LAT;
+  const effectiveLng = userLocation?.lng ?? DEFAULT_LNG;
+  // 只在首次定位时同步到 mapCenter
+  // （后续由 onMoveEnd 控制）
+
   return (
     <PriceRangeProvider stations={stations} selectedFuel={selectedFuel}>
     <main className="relative h-screen w-screen overflow-hidden">
@@ -79,6 +106,7 @@ export default function Home() {
         activeStationId={activeStation?.id ?? null}
         userLocation={userLocation}
         onStationClick={handleStationClick}
+        onMoveEnd={handleMoveEnd}
       />
 
       {/* Header 浮层 */}

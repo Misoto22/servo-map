@@ -9,6 +9,7 @@ import type {
 } from "@servo-map/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+const DEBOUNCE_MS = 300;
 
 interface UseStationsOptions {
   fuel?: FuelType;
@@ -33,6 +34,7 @@ export function useStations(opts: UseStationsOptions): UseStationsResult {
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchStations = useCallback(async () => {
     abortRef.current?.abort();
@@ -76,8 +78,12 @@ export function useStations(opts: UseStationsOptions): UseStationsResult {
   }, [opts.fuel, opts.lat, opts.lng, opts.radius, opts.suburb, opts.limit]);
 
   useEffect(() => {
-    fetchStations();
-    return () => abortRef.current?.abort();
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(fetchStations, DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
+    };
   }, [fetchStations]);
 
   return { stations, loading, error, total, refresh: fetchStations };
