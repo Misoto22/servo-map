@@ -33,18 +33,24 @@ const KV_KEYS = {
   metadata: "metadata",
 };
 
-async function kvPut(key: string, value: string): Promise<void> {
+async function kvPut(key: string, value: string, retries = 3): Promise<void> {
   const accountId = requireEnv("CF_ACCOUNT_ID");
   const namespaceId = requireEnv("CF_KV_NAMESPACE_ID");
   const token = requireEnv("CF_API_TOKEN");
 
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${namespaceId}/values/${encodeURIComponent(key)}`;
-  const res = await fetch(url, {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${token}` },
-    body: value,
-  });
-  if (!res.ok) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+      body: value,
+    });
+    if (res.ok) return;
+    if (res.status === 429 && attempt < retries) {
+      // Rate limited — 等待后重试
+      await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+      continue;
+    }
     const body = await res.text().catch(() => "");
     throw new Error(`KV PUT ${key} failed: ${res.status} — ${body}`);
   }
@@ -251,7 +257,11 @@ interface QldSitePrice {
 }
 
 async function fetchQld(): Promise<Station[]> {
-  const token = requireEnv("QLD_API_TOKEN");
+  const token = process.env.QLD_API_TOKEN;
+  if (!token) {
+    console.warn("[fetch-data] QLD_API_TOKEN not set, skipping QLD");
+    return [];
+  }
   const headers = {
     Authorization: `FPDAPI SubscriberToken=${token}`,
     "Content-Type": "application/json",
@@ -353,22 +363,7 @@ async function main() {
     };
   }
 
-  // 写入单独的 station keys
-  console.log(
-    `[fetch-data] Writing ${allStations.length} individual station keys...`,
-  );
-  // 分批写入，避免过多并发请求
-  const BATCH_SIZE = 50;
-  for (let i = 0; i < allStations.length; i += BATCH_SIZE) {
-    const batch = allStations.slice(i, i + BATCH_SIZE);
-    await Promise.all(
-      batch.map((s) =>
-        kvPut(KV_KEYS.stationById(s.id), JSON.stringify(s)),
-      ),
-    );
-  }
-
-  // 品牌列表
+  // 品牌列表（先写，避免 station keys rate limit 阻塞）
   const brands = [...new Set(allStations.map((s) => s.brand))].sort();
   await kvPut(KV_KEYS.brands, JSON.stringify(brands));
 
@@ -377,6 +372,20 @@ async function main() {
   const existing = existingRaw ? JSON.parse(existingRaw) : {};
   const merged = { ...existing, ...metadataUpdates };
   await kvPut(KV_KEYS.metadata, JSON.stringify(merged));
+
+  // 写入单独的 station keys（用于 GET /stations/:id）
+  console.log(
+    `[fetch-data] Writing ${allStations.length} individual station keys...`,
+  );
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < allStations.length; i += BATCH_SIZE) {
+    const batch = allStations.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map((s) =>
+        kvPut(KV_KEYS.stationById(s.id), JSON.stringify(s)),
+      ),
+    );
+  }
 
   console.log(
     `[fetch-data] Done: ${allStations.length} stations, ${brands.length} brands`,
