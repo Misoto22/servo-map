@@ -1,0 +1,11 @@
+name = "servo-map-api"
+main = "src/index.ts"
+compatibility_date = "2025-03-29"
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+[[kv_namespaces]]
+binding = "KV"
+id = "7bb3949a4e20480fbde7fefeadd1fe41"
+preview_id = "2680cad997854e1c81dd38bd6a8cfaaa"

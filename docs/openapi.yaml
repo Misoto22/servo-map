@@ -1,0 +1,487 @@
+openapi: 3.1.0
+info:
+  title: ServoMap API
+  description: Real-time fuel prices across Australia. Aggregates all state government fuel APIs into one unified source.
+  version: 1.0.0
+  contact:
+    name: ServoMap
+    url: https://servo-map.com
+
+servers:
+  - url: https://api.servo-map.com/api/v1
+    description: Production
+  - url: http://localhost:8787/api/v1
+    description: Local development
+
+tags:
+  - name: Stations
+    description: Fuel station data and prices
+  - name: Reference
+    description: Reference data for filters and UI
+
+paths:
+  /stations:
+    get:
+      operationId: listStations
+      tags: [Stations]
+      summary: List fuel stations
+      description: |
+        Returns a paginated list of fuel stations with current prices.
+        Supports filtering by state, fuel type, brand, and location radius.
+        Results can be sorted by price or distance.
+      parameters:
+        - $ref: "#/components/parameters/State"
+        - $ref: "#/components/parameters/Fuel"
+        - $ref: "#/components/parameters/Brand"
+        - $ref: "#/components/parameters/Lat"
+        - $ref: "#/components/parameters/Lng"
+        - $ref: "#/components/parameters/Radius"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/FuelSort"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/StationWithDistance"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+              examples:
+                cheapest_u91_nsw:
+                  summary: Cheapest U91 in NSW
+                  value:
+                    status: success
+                    data:
+                      - id: nsw-12345
+                        name: Costco Casula
+                        brand: Costco
+                        address: 1 Parkers Farm Pl
+                        suburb: Casula
+                        state: nsw
+                        postcode: "2170"
+                        lat: -33.9496
+                        lng: 150.9006
+                        prices:
+                          - fuel: U91
+                            price: 172.7
+                            updated_at: "2026-03-29T10:00:00Z"
+                    meta:
+                      total: 2847
+                      limit: 100
+                      offset: 0
+                nearby_with_distance:
+                  summary: Nearby stations with distance
+                  value:
+                    status: success
+                    data:
+                      - id: nsw-67890
+                        name: Shell Burwood
+                        brand: Shell
+                        address: 123 Burwood Rd
+                        suburb: Burwood
+                        state: nsw
+                        postcode: "2134"
+                        lat: -33.8773
+                        lng: 151.1042
+                        distance: 1.2
+                        prices:
+                          - fuel: U91
+                            price: 189.9
+                            updated_at: "2026-03-29T10:00:00Z"
+                    meta:
+                      total: 42
+                      limit: 100
+                      offset: 0
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/DataUnavailable"
+
+  /stations/{id}:
+    get:
+      operationId: getStation
+      tags: [Stations]
+      summary: Get a single station
+      description: Returns a single fuel station with all current fuel prices.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Station ID (e.g. `nsw-12345`)
+          schema:
+            type: string
+            example: nsw-12345
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Station"
+              example:
+                status: success
+                data:
+                  id: nsw-12345
+                  name: Shell Burwood
+                  brand: Shell
+                  address: 123 Burwood Rd
+                  suburb: Burwood
+                  state: nsw
+                  postcode: "2134"
+                  lat: -33.8773
+                  lng: 151.1042
+                  prices:
+                    - fuel: U91
+                      price: 189.9
+                      updated_at: "2026-03-29T10:00:00Z"
+                    - fuel: U95
+                      price: 199.9
+                      updated_at: "2026-03-29T10:00:00Z"
+                    - fuel: U98
+                      price: 212.9
+                      updated_at: "2026-03-29T10:00:00Z"
+                    - fuel: Diesel
+                      price: 199.5
+                      updated_at: "2026-03-29T10:00:00Z"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /metadata:
+    get:
+      operationId: getMetadata
+      tags: [Reference]
+      summary: Get data freshness metadata
+      description: Returns the last update timestamp and station count per state. Useful for showing data freshness in the UI.
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties:
+                          $ref: "#/components/schemas/StateMetadata"
+              example:
+                status: success
+                data:
+                  nsw:
+                    last_updated: "2026-03-29T10:15:00Z"
+                    station_count: 2847
+                  qld:
+                    last_updated: "2026-03-29T10:15:00Z"
+                    station_count: 1523
+                  wa:
+                    last_updated: "2026-03-29T02:30:00Z"
+                    station_count: 612
+
+  /brands:
+    get:
+      operationId: listBrands
+      tags: [Reference]
+      summary: List fuel station brands
+      description: Returns all known fuel station brand names. Useful for populating filter dropdowns.
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: string
+              example:
+                status: success
+                data:
+                  - 7-Eleven
+                  - Ampol
+                  - BP
+                  - Caltex
+                  - Coles Express
+                  - Costco
+                  - EG
+                  - Liberty
+                  - Mobil
+                  - Puma
+                  - Shell
+                  - United
+                  - Woolworths
+
+components:
+  parameters:
+    State:
+      name: state
+      in: query
+      description: Filter by state
+      schema:
+        $ref: "#/components/schemas/AustralianState"
+
+    Fuel:
+      name: fuel
+      in: query
+      description: Filter by fuel type. Only returns stations that sell this fuel.
+      schema:
+        $ref: "#/components/schemas/FuelType"
+
+    Brand:
+      name: brand
+      in: query
+      description: Filter by brand (case-insensitive)
+      schema:
+        type: string
+        example: shell
+
+    Lat:
+      name: lat
+      in: query
+      description: Latitude for location-based search. Requires `lng`.
+      schema:
+        type: number
+        format: double
+        minimum: -44
+        maximum: -10
+        example: -33.8688
+
+    Lng:
+      name: lng
+      in: query
+      description: Longitude for location-based search. Requires `lat`.
+      schema:
+        type: number
+        format: double
+        minimum: 112
+        maximum: 154
+        example: 151.2093
+
+    Radius:
+      name: radius
+      in: query
+      description: Search radius in km. Only applies when `lat`/`lng` are provided.
+      schema:
+        type: number
+        default: 5
+        minimum: 1
+        maximum: 50
+        example: 10
+
+    Sort:
+      name: sort
+      in: query
+      description: |
+        Sort order:
+        - `price`: sort by fuel price ascending. Requires `fuel` or `fuel_sort` to be set.
+        - `distance`: sort by distance ascending. Requires `lat`/`lng`.
+      schema:
+        type: string
+        enum: [price, distance]
+        default: price
+
+    FuelSort:
+      name: fuel_sort
+      in: query
+      description: Which fuel type to sort by when `sort=price`. Defaults to `fuel` param value. Required when `sort=price` and `fuel` is not set.
+      schema:
+        $ref: "#/components/schemas/FuelType"
+
+    Limit:
+      name: limit
+      in: query
+      description: Maximum number of results to return.
+      schema:
+        type: integer
+        default: 100
+        minimum: 1
+        maximum: 500
+
+    Offset:
+      name: offset
+      in: query
+      description: Pagination offset.
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+
+  schemas:
+    FuelType:
+      type: string
+      enum: [U91, U95, U98, E10, Diesel]
+      description: Fuel type code
+
+    AustralianState:
+      type: string
+      enum: [nsw, qld, vic, wa, sa, tas, act, nt]
+      description: Australian state/territory code (lowercase)
+
+    FuelPrice:
+      type: object
+      required: [fuel, price, updated_at]
+      properties:
+        fuel:
+          $ref: "#/components/schemas/FuelType"
+        price:
+          type: number
+          format: double
+          description: Price in cents per litre
+          example: 189.9
+        updated_at:
+          type: string
+          format: date-time
+          description: When this price was last reported
+          example: "2026-03-29T10:00:00Z"
+
+    Station:
+      type: object
+      required: [id, name, brand, address, suburb, state, postcode, lat, lng, prices]
+      properties:
+        id:
+          type: string
+          description: Unique station identifier (format `{state}-{source_id}`)
+          example: nsw-12345
+        name:
+          type: string
+          example: Shell Burwood
+        brand:
+          type: string
+          example: Shell
+        address:
+          type: string
+          example: 123 Burwood Rd
+        suburb:
+          type: string
+          example: Burwood
+        state:
+          $ref: "#/components/schemas/AustralianState"
+        postcode:
+          type: string
+          example: "2134"
+        lat:
+          type: number
+          format: double
+          example: -33.8773
+        lng:
+          type: number
+          format: double
+          example: 151.1042
+        prices:
+          type: array
+          items:
+            $ref: "#/components/schemas/FuelPrice"
+
+    StationWithDistance:
+      allOf:
+        - $ref: "#/components/schemas/Station"
+        - type: object
+          properties:
+            distance:
+              type: number
+              format: double
+              description: Distance in km from the requested lat/lng. Only present when lat/lng are provided.
+              example: 1.2
+
+    PaginationMeta:
+      type: object
+      required: [total, limit, offset]
+      properties:
+        total:
+          type: integer
+          description: Total number of matching stations
+          example: 342
+        limit:
+          type: integer
+          example: 100
+        offset:
+          type: integer
+          example: 0
+
+    StateMetadata:
+      type: object
+      required: [last_updated, station_count]
+      properties:
+        last_updated:
+          type: string
+          format: date-time
+          example: "2026-03-29T10:15:00Z"
+        station_count:
+          type: integer
+          example: 2847
+
+    SuccessEnvelope:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [success]
+
+    ErrorResponse:
+      type: object
+      required: [status, message, code]
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+          description: Human-readable error description
+        code:
+          type: string
+          description: Machine-readable error code
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: error
+            message: "Parameter 'sort=distance' requires 'lat' and 'lng' to be provided"
+            code: INVALID_PARAMS
+
+    NotFound:
+      description: Station not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: error
+            message: Station not found
+            code: STATION_NOT_FOUND
+
+    DataUnavailable:
+      description: Data temporarily unavailable
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: error
+            message: Fuel price data is temporarily unavailable
+            code: DATA_UNAVAILABLE

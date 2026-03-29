@@ -1,0 +1,21 @@
+{
+  "name": "servo-map",
+  "private": true,
+  "scripts": {
+    "dev:worker": "pnpm --filter @servo-map/worker dev",
+    "dev:web": "pnpm --filter @servo-map/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd",
+      "sharp"
+    ]
+  }
+}
