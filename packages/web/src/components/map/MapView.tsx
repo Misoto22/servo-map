@@ -27,6 +27,7 @@ interface MapViewProps {
   selectedFuel: FuelType;
   activeStationId: string | null;
   userLocation: { lat: number; lng: number } | null;
+  searchQuery: string;
   onStationClick: (station: StationWithDistance) => void;
   onMoveEnd?: (bounds: {
     ne: [number, number];
@@ -39,6 +40,7 @@ export function MapView({
   selectedFuel,
   activeStationId,
   userLocation,
+  searchQuery,
   onStationClick,
   onMoveEnd,
 }: MapViewProps) {
@@ -46,6 +48,8 @@ export function MapView({
   const { theme } = useTheme();
   const range = usePriceRange();
   const [ready, setReady] = useState(false);
+  // 跳过搜索飞行后触发的 moveEnd，避免用 geo 参数覆盖搜索结果
+  const skipMoveEndRef = useRef(false);
 
   const mapStyle =
     theme === "dark"
@@ -63,9 +67,43 @@ export function MapView({
     }
   }, [userLocation]);
 
+  // 搜索结果返回后，将地图视野调整到结果范围
+  useEffect(() => {
+    if (!searchQuery || stations.length === 0 || !mapRef.current) return;
+
+    if (stations.length === 1) {
+      skipMoveEndRef.current = true;
+      mapRef.current.flyTo({
+        center: [stations[0].lng, stations[0].lat],
+        zoom: 14,
+        duration: 1200,
+      });
+    } else {
+      // 计算所有搜索结果的边界
+      let minLat = Infinity, maxLat = -Infinity;
+      let minLng = Infinity, maxLng = -Infinity;
+      for (const s of stations) {
+        if (s.lat < minLat) minLat = s.lat;
+        if (s.lat > maxLat) maxLat = s.lat;
+        if (s.lng < minLng) minLng = s.lng;
+        if (s.lng > maxLng) maxLng = s.lng;
+      }
+      skipMoveEndRef.current = true;
+      mapRef.current.fitBounds(
+        [[minLng, minLat], [maxLng, maxLat]],
+        { padding: 60, maxZoom: 15, duration: 1200 },
+      );
+    }
+  }, [searchQuery, stations]);
+
   const handleMoveEnd = useCallback(
     (e: ViewStateChangeEvent) => {
       if (!mapRef.current || !onMoveEnd) return;
+      // 搜索飞行结束后跳过一次 moveEnd，避免覆盖搜索结果
+      if (skipMoveEndRef.current) {
+        skipMoveEndRef.current = false;
+        return;
+      }
       const bounds = mapRef.current.getBounds();
       if (bounds) {
         onMoveEnd({

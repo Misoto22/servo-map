@@ -84,6 +84,8 @@ export default function Home() {
       const approxKm = Math.sqrt(dlat * dlat + dlng * dlng) * 111 / 2;
       const radius = Math.max(5, Math.min(approxKm, 200));
 
+      // 用户手动拖动地图后，清除搜索词，切回 geo 模式
+      setSearchSuburb("");
       setMapCenter({ lat: centerLat, lng: centerLng });
       setMapRadius(Math.round(radius));
     },
@@ -105,6 +107,7 @@ export default function Home() {
         selectedFuel={selectedFuel}
         activeStationId={activeStation?.id ?? null}
         userLocation={userLocation}
+        searchQuery={searchSuburb}
         onStationClick={handleStationClick}
         onMoveEnd={handleMoveEnd}
       />
