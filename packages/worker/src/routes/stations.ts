@@ -64,7 +64,11 @@ stationsRoute.get("/", async (c) => {
   }
   if (q) {
     stations = stations.filter(
-      (s) => s.suburb.toLowerCase().includes(q) || s.postcode.startsWith(q),
+      (s) =>
+        s.suburb.toLowerCase().includes(q) ||
+        s.postcode.startsWith(q) ||
+        s.name.toLowerCase().includes(q) ||
+        s.address.toLowerCase().includes(q),
     );
   }
   if (suburb) {

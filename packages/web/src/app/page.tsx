@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { StationWithDistance, FuelType } from "@servo-map/shared";
 import { Header } from "@/components/layout/Header";
 import { SearchBar } from "@/components/search/SearchBar";
@@ -49,7 +49,15 @@ export default function Home() {
     [selectedFuel, mapCenter.lat, mapCenter.lng, mapRadius, searchSuburb],
   );
 
-  const { stations, loading, total } = useStations(stationsOpts);
+  const { stations, loading, total, noResults } = useStations(stationsOpts);
+
+  // 搜索无结果时自动清除搜索词，保留地图当前数据
+  useEffect(() => {
+    if (noResults) {
+      const timer = setTimeout(() => setSearchSuburb(""), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [noResults]);
 
   const handleStationClick = useCallback((station: StationWithDistance) => {
     setActiveStation(station);
@@ -126,6 +134,13 @@ export default function Home() {
       {loading && (
         <div className="fixed top-28 left-1/2 -translate-x-1/2 z-40 glass rounded-[var(--radius-pill)] px-4 py-2 text-xs text-text-secondary animate-fade-in">
           Loading stations...
+        </div>
+      )}
+
+      {/* 搜索无结果提示 */}
+      {noResults && (
+        <div className="fixed top-28 left-1/2 -translate-x-1/2 z-40 glass rounded-[var(--radius-pill)] px-4 py-2 text-xs text-text-secondary animate-fade-in">
+          No stations found for &ldquo;{searchSuburb}&rdquo;
         </div>
       )}
 

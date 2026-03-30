@@ -25,6 +25,8 @@ interface UseStationsResult {
   loading: boolean;
   error: string | null;
   total: number;
+  /** 搜索无结果时为 true */
+  noResults: boolean;
   refresh: () => void;
 }
 
@@ -33,6 +35,7 @@ export function useStations(opts: UseStationsOptions): UseStationsResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+  const [noResults, setNoResults] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -66,8 +69,14 @@ export function useStations(opts: UseStationsOptions): UseStationsResult {
         await res.json();
 
       if (!controller.signal.aborted) {
-        setStations(json.data);
-        setTotal(json.meta?.total ?? json.data.length);
+        const isSearch = !!opts.q;
+        const empty = json.data.length === 0;
+        setNoResults(isSearch && empty);
+        // 搜索无结果时保留当前站点，不清空地图
+        if (!(isSearch && empty)) {
+          setStations(json.data);
+          setTotal(json.meta?.total ?? json.data.length);
+        }
       }
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") return;
@@ -86,5 +95,5 @@ export function useStations(opts: UseStationsOptions): UseStationsResult {
     };
   }, [fetchStations]);
 
-  return { stations, loading, error, total, refresh: fetchStations };
+  return { stations, loading, error, total, noResults, refresh: fetchStations };
 }
