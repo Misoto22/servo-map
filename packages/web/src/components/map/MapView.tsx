@@ -48,8 +48,6 @@ export function MapView({
   const { theme } = useTheme();
   const range = usePriceRange();
   const [ready, setReady] = useState(false);
-  // 跳过搜索飞行后触发的 moveEnd，避免用 geo 参数覆盖搜索结果
-  const skipMoveEndRef = useRef(false);
 
   const mapStyle =
     theme === "dark"
@@ -72,7 +70,6 @@ export function MapView({
     if (!searchQuery || stations.length === 0 || !mapRef.current) return;
 
     if (stations.length === 1) {
-      skipMoveEndRef.current = true;
       mapRef.current.flyTo({
         center: [stations[0].lng, stations[0].lat],
         zoom: 14,
@@ -88,7 +85,6 @@ export function MapView({
         if (s.lng < minLng) minLng = s.lng;
         if (s.lng > maxLng) maxLng = s.lng;
       }
-      skipMoveEndRef.current = true;
       mapRef.current.fitBounds(
         [[minLng, minLat], [maxLng, maxLat]],
         { padding: 60, maxZoom: 15, duration: 1200 },
@@ -96,14 +92,12 @@ export function MapView({
     }
   }, [searchQuery, stations]);
 
+  // 只上报用户手动触发的移动。程序化移动(flyTo/fitBounds)没有 originalEvent，
+  // 忽略它们可以避免搜索后的自动飞行把 searchSuburb 清空。
   const handleMoveEnd = useCallback(
     (e: ViewStateChangeEvent) => {
       if (!mapRef.current || !onMoveEnd) return;
-      // 搜索飞行结束后跳过一次 moveEnd，避免覆盖搜索结果
-      if (skipMoveEndRef.current) {
-        skipMoveEndRef.current = false;
-        return;
-      }
+      if (!e.originalEvent) return;
       const bounds = mapRef.current.getBounds();
       if (bounds) {
         onMoveEnd({
