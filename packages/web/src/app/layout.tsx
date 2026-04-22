@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Syne, DM_Sans } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import "./globals.css";
 
@@ -46,6 +47,7 @@ export default function RootLayout({
     <html lang="en" data-theme="dark" suppressHydrationWarning>
       <body className={`${syne.variable} ${dmSans.variable} font-body`}>
         <ThemeProvider>{children}</ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
