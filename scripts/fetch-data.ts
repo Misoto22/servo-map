@@ -1,6 +1,9 @@
 /**
  * 独立数据抓取脚本 — 在 GitHub Actions 中运行
- * 从 NSW/QLD API 抓取油价数据，通过 Cloudflare KV REST API 写入
+ *
+ * 复用 worker 的 state adapters 抓取油价数据（单一真相来源），
+ * 然后通过 Cloudflare KV REST API 写入。adapters 在运行时只依赖
+ * 全局 fetch / crypto，对 @servo-map/shared 全是 type-only import。
  *
  * 环境变量:
  *   NSW_API_KEY, NSW_API_AUTH — NSW FuelCheck API 认证
@@ -10,11 +13,17 @@
 
 import type {
   Station,
-  FuelPrice,
-  FuelType,
   AustralianState,
   StateMetadata,
 } from "@servo-map/shared";
+import { adapters } from "../packages/worker/src/adapters/index";
+import { KV_KEYS } from "../packages/worker/src/kv/keys";
+import type { Env } from "../packages/worker/src/env";
+
+// 当某州本次抓取数量低于上次的该比例时，跳过覆盖以保护 KV 中的健康数据
+const MIN_RETENTION_RATIO = 0.5;
+// 低于此基数的州不触发护栏（新州 / 极小州的正常波动）
+const RETENTION_GUARD_FLOOR = 20;
 
 // ── 环境变量 ──
 
@@ -24,14 +33,16 @@ function requireEnv(name: string): string {
   return val;
 }
 
-// ── Cloudflare KV REST API ──
+/** 为 adapters 构造 env（KV binding 不会被 adapters 使用，仅读取 secrets） */
+function buildAdapterEnv(): Env {
+  return {
+    NSW_API_KEY: requireEnv("NSW_API_KEY"),
+    NSW_API_AUTH: requireEnv("NSW_API_AUTH"),
+    QLD_API_TOKEN: process.env.QLD_API_TOKEN ?? "",
+  } as unknown as Env;
+}
 
-const KV_KEYS = {
-  stationsByState: (state: AustralianState) => `stations:${state}`,
-  stationById: (id: string) => `station:${id}`,
-  brands: "brands",
-  metadata: "metadata",
-};
+// ── Cloudflare KV REST API ──
 
 async function kvPut(key: string, value: string, retries = 3): Promise<void> {
   const accountId = requireEnv("CF_ACCOUNT_ID");
@@ -100,272 +111,26 @@ async function kvGet(key: string): Promise<string | null> {
   return res.text();
 }
 
-// ── 油种映射 ──
-
-const NSW_FUEL_MAP: Record<string, FuelType> = {
-  E10: "E10",
-  U91: "U91",
-  P95: "U95",
-  P98: "U98",
-  DL: "Diesel",
-};
-
-const QLD_FUEL_MAP: Record<number, FuelType> = {
-  2: "U91",
-  5: "U95",
-  8: "U98",
-  12: "E10",
-  3: "Diesel",
-};
-
-// ── NSW Adapter ──
-
-interface NswOAuthResponse {
-  access_token: string;
-}
-
-interface NswStation {
-  brandid: string;
-  stationid: string;
-  brand: string;
-  code: string;
-  name: string;
-  address: string;
-  location: { latitude: number; longitude: number };
-  state: string;
-}
-
-interface NswPriceEntry {
-  stationcode: number;
-  state: string;
-  fueltype: string;
-  price: number;
-  lastupdated: string;
-}
-
-interface NswPricesResponse {
-  stations: NswStation[];
-  prices: NswPriceEntry[];
-}
-
-function parseNswAddress(raw: string): { suburb: string; postcode: string } {
-  const match = raw.match(/,\s*(.+?)\s+(?:NSW|TAS|ACT)\s+(\d{4})$/i);
-  if (match) return { suburb: match[1].trim(), postcode: match[2] };
-  const pcMatch = raw.match(/(\d{4})$/);
-  return { suburb: "", postcode: pcMatch?.[1] ?? "" };
-}
-
-function parseNswDate(raw: string): string {
-  const match = raw.match(
-    /(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/,
-  );
-  if (!match) return new Date().toISOString();
-  const [, dd, mm, yyyy, hh, min, ss] = match;
-  return new Date(`${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}Z`).toISOString();
-}
-
-function mapNswState(raw: string): AustralianState | null {
-  const mapping: Record<string, AustralianState> = {
-    nsw: "nsw",
-    "new south wales": "nsw",
-    tas: "tas",
-    tasmania: "tas",
-    act: "act",
-    "australian capital territory": "act",
-  };
-  return mapping[raw.toLowerCase().trim()] ?? null;
-}
-
-async function fetchNsw(): Promise<Station[]> {
-  const apiKey = requireEnv("NSW_API_KEY");
-  const authHeader = requireEnv("NSW_API_AUTH");
-
-  // Step 1: OAuth token
-  const oauthRes = await fetch(
-    "https://api.onegov.nsw.gov.au/oauth/client_credential/accesstoken?grant_type=client_credentials",
-    { method: "GET", headers: { Authorization: authHeader } },
-  );
-  if (!oauthRes.ok)
-    throw new Error(`NSW OAuth error: ${oauthRes.status} ${oauthRes.statusText}`);
-  const { access_token } = (await oauthRes.json()) as NswOAuthResponse;
-
-  // Step 2: 抓取 stations + prices
-  const headers = {
-    Authorization: `Bearer ${access_token}`,
-    apikey: apiKey,
-    transactionid: crypto.randomUUID(),
-    requesttimestamp: new Date()
-      .toLocaleString("en-AU", {
-        timeZone: "UTC",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      })
-      .replace(",", ""),
-    "Content-Type": "application/json",
-  };
-
-  const dataRes = await fetch(
-    "https://api.onegov.nsw.gov.au/FuelPriceCheck/v2/fuel/prices",
-    { headers },
-  );
-  if (!dataRes.ok) {
-    const body = await dataRes.text().catch(() => "");
-    throw new Error(
-      `NSW API error: ${dataRes.status} ${dataRes.statusText} — ${body}`,
-    );
-  }
-  const data = (await dataRes.json()) as NswPricesResponse;
-
-  // 索引站点
-  const stationMap = new Map<string, NswStation>();
-  for (const s of data.stations) stationMap.set(s.code, s);
-
-  // 聚合油价
-  const pricesByStation = new Map<string, FuelPrice[]>();
-  for (const p of data.prices) {
-    const fuelType = NSW_FUEL_MAP[p.fueltype];
-    if (!fuelType) continue;
-    const code = String(p.stationcode);
-    const prices = pricesByStation.get(code) ?? [];
-    prices.push({
-      fuel: fuelType,
-      price: p.price,
-      updated_at: parseNswDate(p.lastupdated),
-    });
-    pricesByStation.set(code, prices);
-  }
-
-  // 合并
-  const stations: Station[] = [];
-  for (const [code, prices] of pricesByStation) {
-    const ref = stationMap.get(code);
-    if (!ref) continue;
-    if (!ref.location?.latitude || !ref.location?.longitude) continue;
-    const state = mapNswState(ref.state);
-    if (!state) continue;
-    const { suburb, postcode } = parseNswAddress(ref.address);
-    stations.push({
-      id: `${state}-${code}`,
-      name: ref.name,
-      brand: ref.brand,
-      address: ref.address,
-      suburb,
-      state,
-      postcode,
-      lat: ref.location.latitude,
-      lng: ref.location.longitude,
-      prices,
-    });
-  }
-  return stations;
-}
-
-// ── QLD Adapter ──
-
-interface QldSite {
-  S: number;
-  N: string;
-  A: string;
-  B: number;
-  Bn: string;
-  P: string;
-  Lt: number;
-  Ln: number;
-  Sb: string;
-}
-
-interface QldSitePrice {
-  SiteId: number;
-  FuelId: number;
-  Price: number;
-  TransactionDateUtc: string;
-}
-
-async function fetchQld(): Promise<Station[]> {
-  const token = process.env.QLD_API_TOKEN;
-  if (!token) {
-    console.warn("[fetch-data] QLD_API_TOKEN not set, skipping QLD");
-    return [];
-  }
-  const headers = {
-    Authorization: `FPDAPI SubscriberToken=${token}`,
-    "Content-Type": "application/json",
-  };
-  const base = "https://fppdirectapi-prod.fuelpricesqld.com.au";
-
-  const [sitesRes, pricesRes] = await Promise.all([
-    fetch(
-      `${base}/Subscriber/GetFullSiteDetails?countryId=21&geoRegionLevel=3&geoRegionId=1`,
-      { headers },
-    ),
-    fetch(
-      `${base}/Price/GetSitesPrices?countryId=21&geoRegionLevel=3&geoRegionId=1`,
-      { headers },
-    ),
-  ]);
-
-  if (!sitesRes.ok)
-    throw new Error(`QLD sites error: ${sitesRes.status} ${sitesRes.statusText}`);
-  if (!pricesRes.ok)
-    throw new Error(`QLD prices error: ${pricesRes.status} ${pricesRes.statusText}`);
-
-  const sites = (await sitesRes.json()) as { S: QldSite[] };
-  const pricesData = (await pricesRes.json()) as { SitePrices: QldSitePrice[] };
-
-  const pricesBySite = new Map<number, FuelPrice[]>();
-  for (const p of pricesData.SitePrices) {
-    const fuelType = QLD_FUEL_MAP[p.FuelId];
-    if (!fuelType) continue;
-    const prices = pricesBySite.get(p.SiteId) ?? [];
-    prices.push({
-      fuel: fuelType,
-      price: p.Price / 10,
-      updated_at: p.TransactionDateUtc,
-    });
-    pricesBySite.set(p.SiteId, prices);
-  }
-
-  const stations: Station[] = [];
-  for (const site of sites.S) {
-    if (!site.Lt || !site.Ln) continue;
-    stations.push({
-      id: `qld-${site.S}`,
-      name: site.N,
-      brand: site.Bn,
-      address: site.A,
-      suburb: site.Sb,
-      state: "qld",
-      postcode: site.P,
-      lat: site.Lt,
-      lng: site.Ln,
-      prices: pricesBySite.get(site.S) ?? [],
-    });
-  }
-  return stations;
-}
-
 // ── 主流程 ──
 
 async function main() {
   console.log("[fetch-data] Starting...");
 
-  // 并行抓取
-  const results = await Promise.allSettled([fetchNsw(), fetchQld()]);
-  const labels = ["NSW/TAS/ACT", "QLD"];
+  // 并行调用所有 adapter，互不阻塞（一个失败不影响其他）
+  const env = buildAdapterEnv();
+  const results = await Promise.allSettled(
+    adapters.map((a) => a.fetchStations(env)),
+  );
 
   const allStations: Station[] = [];
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
+    const label = adapters[i].states.join("/").toUpperCase();
     if (r.status === "fulfilled") {
-      console.log(`[fetch-data] ${labels[i]}: ${r.value.length} stations`);
+      console.log(`[fetch-data] ${label}: ${r.value.length} stations`);
       allStations.push(...r.value);
     } else {
-      console.error(`[fetch-data] ${labels[i]}: FAILED —`, r.reason);
+      console.error(`[fetch-data] ${label}: FAILED —`, r.reason);
     }
   }
 
@@ -382,41 +147,66 @@ async function main() {
     grouped.set(s.state, group);
   }
 
-  // 写入 KV — 按州 chunks
+  // 先读已有 metadata —— 用于护栏比较 + 合并
+  const existingRaw = await kvGet(KV_KEYS.metadata);
+  const existingMeta: Record<string, StateMetadata> = existingRaw
+    ? JSON.parse(existingRaw)
+    : {};
+
+  // 写入按州 chunk，带最小数量护栏
   const metadataUpdates: Record<string, StateMetadata> = {};
+  const writtenStations: Station[] = [];
   for (const [state, stations] of grouped) {
+    const prev = existingMeta[state]?.station_count ?? 0;
+    if (
+      prev > RETENTION_GUARD_FLOOR &&
+      stations.length < prev * MIN_RETENTION_RATIO
+    ) {
+      console.warn(
+        `[fetch-data] ${state}: ${stations.length} stations vs previous ${prev} ` +
+          `(< ${MIN_RETENTION_RATIO * 100}% retention) — skipping overwrite, preserving prior KV`,
+      );
+      continue;
+    }
     console.log(`[fetch-data] Writing ${state}: ${stations.length} stations...`);
     await kvPut(KV_KEYS.stationsByState(state), JSON.stringify(stations));
     metadataUpdates[state] = {
       last_updated: new Date().toISOString(),
       station_count: stations.length,
     };
+    writtenStations.push(...stations);
+  }
+
+  if (writtenStations.length === 0) {
+    console.error(
+      "[fetch-data] Every state failed the retention guard; nothing written.",
+    );
+    process.exit(1);
   }
 
   // 品牌列表（先写，避免 station keys rate limit 阻塞）
+  // 取自全部抓取结果：品牌是 UI 过滤项，超集无害
   const brands = [...new Set(allStations.map((s) => s.brand))].sort();
   await kvPut(KV_KEYS.brands, JSON.stringify(brands));
 
-  // Metadata（合并已有数据）
-  const existingRaw = await kvGet(KV_KEYS.metadata);
-  const existing = existingRaw ? JSON.parse(existingRaw) : {};
-  const merged = { ...existing, ...metadataUpdates };
+  // Metadata（合并已有数据，未更新/被护栏跳过的州保留上次记录）
+  const merged = { ...existingMeta, ...metadataUpdates };
   await kvPut(KV_KEYS.metadata, JSON.stringify(merged));
 
-  // 写入单独的 station keys（用于 GET /stations/:id）
-  // Cloudflare KV REST API 限流严格，使用 bulk write API 一次最多 10000 对
+  // 写入单独的 station keys（用于 GET /stations/:id）—— 仅写实际更新的州，
+  // 与 stations:{state} chunk 保持一致
   console.log(
-    `[fetch-data] Writing ${allStations.length} individual station keys via bulk API...`,
+    `[fetch-data] Writing ${writtenStations.length} individual station keys via bulk API...`,
   );
   await kvBulkWrite(
-    allStations.map((s) => ({
+    writtenStations.map((s) => ({
       key: KV_KEYS.stationById(s.id),
       value: JSON.stringify(s),
     })),
   );
 
   console.log(
-    `[fetch-data] Done: ${allStations.length} stations, ${brands.length} brands`,
+    `[fetch-data] Done: ${writtenStations.length} stations written, ${brands.length} brands`,
   );
 }
 
