@@ -34,16 +34,13 @@
           └───────────────────────────────────────┘
 ```
 
-## Two runtimes, one contract
+## One writer, read-only worker
 
-There are **two callers that write KV**:
+**`scripts/fetch-data.ts`** is the only path that writes KV — a Node script run by GitHub Actions every 15 minutes. It imports the worker's `StateAdapter` list directly, calls each adapter, and writes to KV via the Cloudflare REST API. The adapters are pure (global `fetch`/`crypto` only; every `@servo-map/shared` import is type-only), so the Node script reuses them with no worker-runtime dependency.
 
-1. **`scripts/fetch-data.ts`** — Node script run by GitHub Actions every 15 minutes. It imports adapters via dynamic path, calls each, and writes to KV using the Cloudflare REST API.
-2. **`packages/worker/src/cron/handler.ts`** — the Worker's built-in scheduled handler. It uses the native KV binding. Present for future migration; **not wired as the active ingest today**.
+The Hono Worker is **read-only** — it serves `/api/v1/*` from KV and never writes.
 
-Both paths share the same `StateAdapter` contract and produce identical `Station[]` output. Do not let them diverge.
-
-The Hono Worker is **read-only** in steady state — it serves `/api/v1/*` from KV.
+> If ingest is ever migrated onto Cloudflare Cron Triggers, re-add a `scheduled` handler that calls the same adapter list and wire `[triggers].crons` in `wrangler.toml` — and disable the `fetch-data.yml` schedule first.
 
 ## Shared types
 

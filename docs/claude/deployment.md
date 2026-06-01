@@ -40,7 +40,7 @@ Two services, two providers.
 
 - **Runner:** GitHub Actions, `.github/workflows/fetch-data.yml`, schedule `*/15 * * * *` (+ `workflow_dispatch`).
 - **Command:** `npx tsx scripts/fetch-data.ts`.
-- **Why GH Actions, not CF cron:** we've staged the migration — the CF cron handler (`packages/worker/src/cron/handler.ts`) is implemented but not yet the active ingest. When migrating, disable the `fetch-data.yml` schedule before enabling CF cron triggers in `wrangler.toml`.
+- **Why GH Actions, not CF cron:** ingest is off Cloudflare Cron Triggers because NSW rate-limits Cloudflare's shared egress IPs. The worker is read-only and has no scheduled handler. To migrate back to CF cron, add a `scheduled` export that calls the adapter list plus `[triggers].crons` in `wrangler.toml`, and disable the `fetch-data.yml` schedule first.
 - **Env consumed by the script:**
   - `NSW_API_KEY`, `NSW_API_AUTH`, `QLD_API_TOKEN` (and whatever new adapters need)
   - `CF_ACCOUNT_ID`, `CF_API_TOKEN`
