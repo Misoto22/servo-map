@@ -1,0 +1,108 @@
+# ServoMap — Project Constitution
+
+> Stable, high-signal context for any agent working in this repo.
+> For product narrative and roadmap, see [`plan.md`](./plan.md).
+> For deep dives on any topic, follow the pointers in **§ Rule docs** below.
+
+---
+
+## 1. What this is
+
+ServoMap is an Australia-wide fuel price map. It aggregates every state's
+fuel reporting API into one normalised dataset, serves it through a
+Cloudflare Worker, and renders it in a Next.js + Mapbox frontend.
+
+- **Domain:** `servo-map.com` (pending)
+- **API:** `api.servo-map.com` (Cloudflare)
+- **Status:** Phase 1 — NSW + QLD live; WA / VIC / SA pending (see `plan.md`)
+- **Cost target:** $0/month on free tiers
+
+---
+
+## 2. Stack
+
+| Layer       | Choice                                     |
+|-------------|--------------------------------------------|
+| Frontend    | Next.js 15 (App Router), React 19, Tailwind 4, Mapbox GL, `@vercel/analytics` |
+| Backend     | Cloudflare Worker + Hono 4, KV for cache   |
+| Types       | Shared TS package (`@servo-map/shared`)    |
+| Ingest cron | GitHub Actions (`*/15 * * * *`) → `scripts/fetch-data.ts` → CF KV REST API |
+| Deploy      | Vercel (web), Wrangler (worker)            |
+| Monorepo    | pnpm workspaces                             |
+| CI          | GitHub Actions: typecheck · lint · build-web · test |
+
+---
+
+## 3. Package map
+
+```
+servo-map/
+├── packages/
+│   ├── shared/      # Pure TS types + enums. No runtime code.
+│   ├── worker/      # Hono API + KV readers. Cron handler retained but ingest runs from GH Actions today.
+│   └── web/         # Next.js App Router. Map, hooks, station pages.
+├── scripts/
+│   └── fetch-data.ts  # Invoked by GH Actions cron. Calls adapters, writes KV via CF REST API.
+├── docs/
+│   ├── openapi.yaml   # Source of truth for the REST contract.
+│   └── claude/*.md    # Rule docs (see below).
+├── plan.md            # Product + roadmap narrative.
+└── CLAUDE.md          # This file.
+```
+
+---
+
+## 4. Entry points
+
+```bash
+pnpm install                                    # install all workspaces
+pnpm --filter @servo-map/shared build           # shared must build before others typecheck
+pnpm dev:worker                                 # wrangler dev on :8787
+pnpm dev:web                                    # next dev on :3000
+pnpm -r typecheck                               # repo-wide type gate
+pnpm -r lint                                    # repo-wide lint gate
+pnpm -r test                                    # repo-wide tests (vitest)
+pnpm -r build                                   # repo-wide build
+```
+
+- Frontend expects `NEXT_PUBLIC_API_URL` (falls back to `http://localhost:8787` in `packages/web/src/lib/api.ts`).
+- Worker expects `KV` binding + secrets — see `docs/claude/security.md`.
+
+---
+
+## 5. Golden rules (non-negotiable)
+
+1. **`@servo-map/shared` is the single source of truth for types.** Never redefine `Station`, `FuelPrice`, `AustralianState`, `FuelType`, `ApiResponse` in web or worker.
+2. **`docs/openapi.yaml` is the source of truth for the HTTP contract.** Update it in the same PR as any route change.
+3. **Adapters follow one contract** (`packages/worker/src/adapters/types.ts` → `StateAdapter`). Add new states by copying an existing adapter — never by inventing a new pattern. See `docs/claude/adapters.md`.
+4. **KV keys are namespaced in `packages/worker/src/kv/keys.ts`.** Never string-concatenate keys at call sites.
+5. **No state APIs called from the browser.** The worker (or the ingest script) is the only upstream caller.
+6. **Ingest is a scheduled side effect, not a request path.** A failed adapter must not fail the whole cron — use `Promise.allSettled` and preserve prior KV data.
+7. **Secrets never enter the repo.** `.dev.vars`, `.env.local`, and GH secrets only. See `docs/claude/security.md`.
+8. **Strict TS only.** `tsconfig.base.json` has `strict: true`; do not disable it per package.
+9. **Match existing style before inventing new patterns.** Worker routes use Hono patterns; web uses App Router + hooks; types live in `shared`.
+10. **Merge via squash on PR green.** Never force-push `main`. See `docs/claude/workflows.md`.
+
+---
+
+## 6. Rule docs
+
+| Doc                                            | When to read                                                  |
+|------------------------------------------------|---------------------------------------------------------------|
+| [`docs/claude/architecture.md`](./docs/claude/architecture.md) | Understanding data flow, KV schema, package boundaries        |
+| [`docs/claude/conventions.md`](./docs/claude/conventions.md)   | Before writing code — naming, file layout, TS patterns        |
+| [`docs/claude/adapters.md`](./docs/claude/adapters.md) ★       | Adding a new state adapter (WA, VIC, SA, NT)                  |
+| [`docs/claude/api.md`](./docs/claude/api.md)                   | Changing routes, response shape, or query params              |
+| [`docs/claude/testing.md`](./docs/claude/testing.md)           | Writing tests — framework, layout, expectations               |
+| [`docs/claude/deployment.md`](./docs/claude/deployment.md)     | Deploying, rolling back, env-var inventory                    |
+| [`docs/claude/security.md`](./docs/claude/security.md)         | Handling secrets, tokens, rotation                            |
+| [`docs/claude/workflows.md`](./docs/claude/workflows.md)       | Branch names, commit style, PR + CI flow                      |
+
+Per-package notes: [`packages/web/CLAUDE.md`](./packages/web/CLAUDE.md) · [`packages/worker/CLAUDE.md`](./packages/worker/CLAUDE.md).
+
+---
+
+## 7. Out of scope for this doc
+
+Product rationale, roadmap, and data-source tables live in [`plan.md`](./plan.md).
+Do not duplicate them here — they change faster than the constitution should.

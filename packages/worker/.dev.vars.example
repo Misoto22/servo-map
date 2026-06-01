@@ -1,0 +1,12 @@
+# Copy to .dev.vars and fill in. Never commit .dev.vars.
+# Wrangler loads this file automatically during `wrangler dev`.
+
+# NSW FuelCheck API (also covers TAS + ACT)
+# Register an app at https://api.nsw.gov.au and enable FuelCheck v2.
+NSW_API_KEY=
+# Basic auth header value for the OAuth token request. Format: "Basic <base64(client_id:client_secret)>"
+NSW_API_AUTH=
+
+# QLD Fuel Prices Subscriber API
+# Register at https://www.fuelpricesqld.com.au/
+QLD_API_TOKEN=
