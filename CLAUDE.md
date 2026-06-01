@@ -39,7 +39,7 @@ Cloudflare Worker, and renders it in a Next.js + Mapbox frontend.
 servo-map/
 ├── packages/
 │   ├── shared/      # Pure TS types + enums. No runtime code.
-│   ├── worker/      # Hono API + KV readers. Cron handler retained but ingest runs from GH Actions today.
+│   ├── worker/      # Read-only Hono API + KV readers. Ingest runs from GH Actions (scripts/fetch-data.ts).
 │   └── web/         # Next.js App Router. Map, hooks, station pages.
 ├── scripts/
 │   └── fetch-data.ts  # Invoked by GH Actions cron. Calls adapters, writes KV via CF REST API.

@@ -76,7 +76,7 @@ Use the `@/*` alias in web (`packages/web/tsconfig.json`), not deep relative pat
 ### Adapters
 
 - Throw on upstream HTTP failure with a descriptive message including the state code and status.
-- The caller (`handleScheduled` or `scripts/fetch-data.ts`) uses `Promise.allSettled` — a single throw must not poison the cycle.
+- The ingest caller (`scripts/fetch-data.ts`) runs adapters under `Promise.allSettled` — a single throw must not poison the cycle.
 
 ### Web
 

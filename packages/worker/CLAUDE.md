@@ -4,10 +4,11 @@
 
 ## What lives here
 
-Cloudflare Worker + Hono. Two responsibilities:
+Cloudflare Worker + Hono. One responsibility:
 
-1. **Read API** (`/api/v1/*`) — serves station / brand / metadata from KV.
-2. **Scheduled ingest handler** — implemented in `src/cron/handler.ts`. Not the active ingest path today; GH Actions runs `scripts/fetch-data.ts` on the same contract.
+**Read API** (`/api/v1/*`) — serves station / brand / metadata from KV. The worker never writes KV.
+
+Ingest lives outside the worker: GitHub Actions runs `scripts/fetch-data.ts` every 15 min, which imports this package's `StateAdapter` list and writes to the same KV via the Cloudflare REST API.
 
 ## Rules specific to this package
 
