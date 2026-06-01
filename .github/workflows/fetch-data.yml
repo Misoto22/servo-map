@@ -5,10 +5,15 @@ on:
     - cron: "*/15 * * * *"
   workflow_dispatch: # 手动触发
 
+concurrency:
+  group: fetch-data
+  cancel-in-progress: false # queue overlapping runs; never interrupt a write mid-flight
+
 jobs:
   fetch:
     name: Fetch & Write to KV
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
