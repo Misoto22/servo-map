@@ -60,6 +60,26 @@ export function getFuelPrice(
 }
 
 /**
+ * 两个经纬度之间的大圆距离（km）。
+ * 用于地图视野变化时判断是否值得重新请求，减少冗余的 Worker/Mapbox 调用。
+ */
+export function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6371; // 地球半径 km
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+/**
  * 格式化距离显示
  */
 export function formatDistance(km: number): string {
