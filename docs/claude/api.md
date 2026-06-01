@@ -58,6 +58,7 @@ Active error codes (see `packages/worker/src/routes/stations.ts`):
 | GET    | `/api/v1/stations/:id`        | Single station by id                   |
 | GET    | `/api/v1/brands`              | Sorted unique brand list               |
 | GET    | `/api/v1/metadata`            | Per-state ingest metadata              |
+| GET    | `/api/v1/trends`              | Daily price history series per state   |
 
 ### `GET /api/v1/stations` query params
 
@@ -73,6 +74,22 @@ Active error codes (see `packages/worker/src/routes/stations.ts`):
 - `offset` — 0-based.
 
 Pagination is offset/limit (not cursor). Total count is returned in `meta.total`.
+
+### `GET /api/v1/trends` query params
+
+- `state` — **required** `AustralianState` code. History is stored per state (`history:{state}` in KV).
+- `fuel` — optional `FuelType`; narrows the series to one fuel.
+
+Returns `{ state, series: PriceSnapshot[] }`. Each `PriceSnapshot` is a daily
+roll-up (`date`, `fuel`, `min`, `avg`, `max`, `station_count`). The ingest cron
+appends one entry per state + fuel per day (idempotent — same-day re-runs refresh,
+never duplicate), capped to ~90 days.
+
+### Edge caching
+
+Read routes (`/stations`, `/metadata`, `/brands`, `/trends`) set
+`Cache-Control: public, max-age=60, s-maxage=120, stale-while-revalidate=600`
+so Cloudflare's edge can absorb repeat reads between 15-min ingest cycles.
 
 ## Changing the contract
 

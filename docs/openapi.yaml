@@ -194,6 +194,60 @@ paths:
                     last_updated: "2026-03-29T02:30:00Z"
                     station_count: 612
 
+  /trends:
+    get:
+      operationId: getTrends
+      tags: [Reference]
+      summary: Get price history for a state
+      description: |
+        Returns a rolling series of daily price snapshots (min/avg/max +
+        station count per fuel) for a single state, captured by the ingest
+        cron — one entry per state + fuel per day, capped to ~90 days.
+        `state` is required; pass `fuel` to narrow the series to one fuel type.
+      parameters:
+        - name: state
+          in: query
+          required: true
+          description: State code to return history for.
+          schema:
+            $ref: "#/components/schemas/AustralianState"
+        - name: fuel
+          in: query
+          description: Optional fuel filter. Narrows the series to one fuel type.
+          schema:
+            $ref: "#/components/schemas/FuelType"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PriceTrend"
+              example:
+                status: success
+                data:
+                  state: nsw
+                  series:
+                    - date: "2026-06-01"
+                      fuel: U91
+                      min: 169.9
+                      avg: 182.4
+                      max: 199.9
+                      station_count: 2811
+                    - date: "2026-06-02"
+                      fuel: U91
+                      min: 170.3
+                      avg: 183.1
+                      max: 201.5
+                      station_count: 2820
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
   /brands:
     get:
       operationId: listBrands
@@ -448,6 +502,47 @@ components:
         station_count:
           type: integer
           example: 2847
+
+    PriceSnapshot:
+      type: object
+      required: [date, fuel, min, avg, max, station_count]
+      properties:
+        date:
+          type: string
+          description: Calendar date (UTC) in YYYY-MM-DD; one entry per day per fuel.
+          example: "2026-06-01"
+        fuel:
+          $ref: "#/components/schemas/FuelType"
+        min:
+          type: number
+          format: double
+          description: Cheapest reported price (cents/L) for this fuel that day.
+          example: 169.9
+        avg:
+          type: number
+          format: double
+          description: Mean reported price (cents/L), rounded to one decimal.
+          example: 182.4
+        max:
+          type: number
+          format: double
+          description: Dearest reported price (cents/L) for this fuel that day.
+          example: 199.9
+        station_count:
+          type: integer
+          description: How many stations reported this fuel that day.
+          example: 2811
+
+    PriceTrend:
+      type: object
+      required: [state, series]
+      properties:
+        state:
+          $ref: "#/components/schemas/AustralianState"
+        series:
+          type: array
+          items:
+            $ref: "#/components/schemas/PriceSnapshot"
 
     SuccessEnvelope:
       type: object

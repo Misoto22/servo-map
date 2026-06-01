@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { stationsRoute } from "./routes/stations";
 import { metadataRoute } from "./routes/metadata";
 import { brandsRoute } from "./routes/brands";
+import { trendsRoute } from "./routes/trends";
 import type { Env } from "./env";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -17,5 +18,6 @@ const api = app.basePath("/api/v1");
 api.route("/stations", stationsRoute);
 api.route("/metadata", metadataRoute);
 api.route("/brands", brandsRoute);
+api.route("/trends", trendsRoute);
 
 export default { fetch: app.fetch };

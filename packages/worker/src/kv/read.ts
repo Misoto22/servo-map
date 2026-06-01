@@ -1,4 +1,9 @@
-import type { Station, StateMetadata, AustralianState } from "@servo-map/shared";
+import type {
+  Station,
+  StateMetadata,
+  AustralianState,
+  PriceSnapshot,
+} from "@servo-map/shared";
 import { KV_KEYS } from "./keys";
 
 export async function readStationsByState(
@@ -23,6 +28,16 @@ export async function readMetadata(
   kv: KVNamespace,
 ): Promise<Record<string, StateMetadata>> {
   return (await kv.get<Record<string, StateMetadata>>(KV_KEYS.metadata, "json")) ?? {};
+}
+
+/** Read the rolling daily price-snapshot series for a state */
+export async function readPriceHistory(
+  kv: KVNamespace,
+  state: AustralianState,
+): Promise<PriceSnapshot[]> {
+  return (
+    (await kv.get<PriceSnapshot[]>(KV_KEYS.priceHistory(state), "json")) ?? []
+  );
 }
 
 /** Read cached reference data (e.g. NSW station reference), returns null if expired */
