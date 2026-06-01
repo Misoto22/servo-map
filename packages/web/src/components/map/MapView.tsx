@@ -32,6 +32,7 @@ interface MapViewProps {
   onMoveEnd?: (bounds: {
     ne: [number, number];
     sw: [number, number];
+    zoom: number;
   }) => void;
 }
 
@@ -103,6 +104,7 @@ export function MapView({
         onMoveEnd({
           ne: [bounds.getNorthEast().lng, bounds.getNorthEast().lat],
           sw: [bounds.getSouthWest().lng, bounds.getSouthWest().lat],
+          zoom: mapRef.current.getZoom(),
         });
       }
     },

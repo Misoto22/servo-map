@@ -124,6 +124,11 @@ body {
   to { transform: translateY(0); }
 }
 
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 .animate-fade-in {
   animation: fade-in var(--duration-normal) var(--ease-out-expo) both;
 }
@@ -162,6 +167,18 @@ body {
   background: color-mix(in srgb, var(--color-surface) 92%, transparent);
   backdrop-filter: blur(32px) saturate(180%);
   -webkit-backdrop-filter: blur(32px) saturate(180%);
+}
+
+/* === Skeleton loading shimmer === */
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-elevated) 25%,
+    var(--color-surface-hover) 50%,
+    var(--color-surface-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }
 
 /* === Bottom sheet grab handle === */

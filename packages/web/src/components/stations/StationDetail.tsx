@@ -2,17 +2,23 @@
 
 import type { StationWithDistance, FuelType } from "@servo-map/shared";
 import { PriceTag } from "./PriceTag";
+import { FavouriteButton } from "./FavouriteButton";
+import { ShareButton } from "./ShareButton";
 import { cn, timeAgo, formatDistance } from "@/lib/utils";
 
 interface StationDetailProps {
   station: StationWithDistance;
   selectedFuel: FuelType;
+  isFavourite?: boolean;
+  onToggleFavourite?: () => void;
   onClose: () => void;
 }
 
 export function StationDetail({
   station,
   selectedFuel,
+  isFavourite,
+  onToggleFavourite,
   onClose,
 }: StationDetailProps) {
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
@@ -38,16 +44,25 @@ export function StationDetail({
             </p>
           )}
         </div>
-        <button
-          onClick={onClose}
-          className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
-          aria-label="Close"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+        <div className="shrink-0 flex items-center gap-1">
+          {onToggleFavourite && (
+            <FavouriteButton
+              active={!!isFavourite}
+              onToggle={onToggleFavourite}
+              size="md"
+            />
+          )}
+          <button
+            onClick={onClose}
+            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
+            aria-label="Close"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* 所有燃油价格 */}
@@ -98,6 +113,11 @@ export function StationDetail({
           </svg>
           Get Directions
         </a>
+        <ShareButton
+          title={`${station.brand} ${station.name} — ServoMap`}
+          path={`/station/${station.id}`}
+          className="w-full py-3 bg-surface-elevated text-text border border-border-subtle hover:bg-surface-hover"
+        />
       </div>
     </div>
   );
