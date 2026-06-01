@@ -3,6 +3,8 @@ import type {
   StationWithDistance,
   ApiResponse,
   PaginationMeta,
+  StateMetadata,
+  AustralianState,
 } from "@servo-map/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8787";
@@ -45,4 +47,10 @@ export async function getStation(
 
 export async function getBrands(): Promise<ApiResponse<string[]>> {
   return fetchApi("/api/v1/brands");
+}
+
+export async function getMetadata(): Promise<
+  ApiResponse<Record<AustralianState, StateMetadata>>
+> {
+  return fetchApi("/api/v1/metadata");
 }

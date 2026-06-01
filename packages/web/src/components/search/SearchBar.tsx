@@ -7,12 +7,28 @@ interface SearchBarProps {
   onSearch: (query: string) => void;
   onLocateMe: () => void;
   locating?: boolean;
+  /** 当前的搜索词（受控）。提交后保持可见，便于用户看到搜索内容并手动清除。 */
+  value: string;
+  /** 用户清除搜索（点击 X），回到地图浏览模式。 */
+  onClear: () => void;
 }
 
-export function SearchBar({ onSearch, onLocateMe, locating }: SearchBarProps) {
-  const [query, setQuery] = useState("");
+export function SearchBar({
+  onSearch,
+  onLocateMe,
+  locating,
+  value,
+  onClear,
+}: SearchBarProps) {
+  // 输入框为本地编辑态；提交后由 value 反映已生效的搜索词
+  const [query, setQuery] = useState(value);
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // 外部 value 变化（如清除）时同步到输入框
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -34,6 +50,12 @@ export function SearchBar({ onSearch, onLocateMe, locating }: SearchBarProps) {
       onSearch(query.trim());
       inputRef.current?.blur();
     }
+  };
+
+  const handleClear = () => {
+    setQuery("");
+    onClear();
+    inputRef.current?.focus();
   };
 
   return (
@@ -80,6 +102,30 @@ export function SearchBar({ onSearch, onLocateMe, locating }: SearchBarProps) {
               <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono text-text-muted border border-border-subtle bg-surface-elevated">
                 /
               </kbd>
+            )}
+
+            {/* 清除按钮 — 有搜索词时显示 */}
+            {query && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
+                aria-label="Clear search"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             )}
 
             {/* 定位按钮 */}

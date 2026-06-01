@@ -4,14 +4,18 @@ import { useState } from "react";
 import Link from "next/link";
 import type { StationWithDistance, FuelType } from "@servo-map/shared";
 import { PriceTag } from "@/components/stations/PriceTag";
+import { FreshnessBadge } from "@/components/stations/FreshnessBadge";
+import { StaleBanner } from "@/components/stations/StaleBanner";
 import { PriceRangeProvider } from "@/providers/PriceRangeProvider";
 import { timeAgo } from "@/lib/utils";
 
 interface Props {
   station: StationWithDistance;
+  /** 该州数据最后更新时间（ISO 串），来自 metadata 端点 */
+  lastUpdated: string | null;
 }
 
-export function StationPageClient({ station }: Props) {
+export function StationPageClient({ station, lastUpdated }: Props) {
   const [selectedFuel, setSelectedFuel] = useState<FuelType>("U91");
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
 
@@ -47,6 +51,14 @@ export function StationPageClient({ station }: Props) {
             {station.address}, {station.suburb} {station.state.toUpperCase()}{" "}
             {station.postcode}
           </p>
+          {lastUpdated && (
+            <div className="mt-3">
+              <FreshnessBadge lastUpdated={lastUpdated} />
+            </div>
+          )}
+          {lastUpdated && (
+            <StaleBanner lastUpdated={lastUpdated} className="mt-4 max-w-md" />
+          )}
         </div>
 
         {/* 价格卡片 */}
@@ -96,7 +108,8 @@ export function StationPageClient({ station }: Props) {
       {/* Footer */}
       <footer className="border-t border-border-subtle mt-16">
         <div className="max-w-3xl mx-auto px-4 py-6 text-center text-xs text-text-muted">
-          Prices sourced from state government APIs. Updated every 15 minutes.
+          Prices sourced from state government APIs.
+          {lastUpdated ? ` Last updated ${timeAgo(lastUpdated)}.` : ""}
         </div>
       </footer>
     </div>
