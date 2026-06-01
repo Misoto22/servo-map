@@ -7,7 +7,10 @@ export function ThemeToggle() {
 
   return (
     <button
+      type="button"
       onClick={toggle}
+      // aria-pressed 表示「浅色模式已开启」，配合 aria-label 让屏幕阅读器知道当前态与动作
+      aria-pressed={theme === "light"}
       className="w-9 h-9 rounded-[var(--radius-button)] glass border border-border-subtle shadow-card flex items-center justify-center text-text-secondary hover:text-text transition-colors duration-[var(--duration-fast)]"
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
     >

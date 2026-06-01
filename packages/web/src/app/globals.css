@@ -59,6 +59,11 @@
   --shadow-float: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
   --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.08);
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.05);
+
+  /* 浅色面板上原始价格色对比度不足（绿 1.6:1 等），换成达到 WCAG AA ≥4.5:1 的同色系深色 */
+  --color-price-cheap: #15803D;
+  --color-price-mid: #B45309;
+  --color-price-expensive: #DC2626;
 }
 
 /* === Base styles === */
@@ -81,6 +86,46 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* === Accessibility === */
+/* 全局键盘焦点环：任何可聚焦元素在键盘导航时都有可见焦点（含被清掉 outline 的输入框） */
+:focus-visible {
+  outline: 2px solid var(--color-ochre);
+  outline-offset: 2px;
+  border-radius: var(--radius-button);
+}
+
+/* 视觉隐藏但对屏幕阅读器可见（h1、aria-live 区域、跳转链接默认态） */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 跳转到主内容：聚焦时从屏幕外滑入，给键盘用户一个绕过浮层的入口 */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  transform: translateY(-200%);
+  padding: 8px 16px;
+  border-radius: var(--radius-button);
+  background: var(--color-ochre);
+  color: var(--color-bg);
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: transform var(--duration-fast) var(--ease-out-expo);
+}
+.skip-link:focus {
+  transform: translateY(0);
 }
 
 /* === Mapbox overrides === */
@@ -188,4 +233,18 @@ body {
   border-radius: 2px;
   background: var(--color-text-muted);
   margin: 8px auto;
+}
+
+/* === Reduced motion === */
+/* 用户请求减少动效时，关闭入场/循环动画与过渡，仅保留瞬时状态切换。
+   保留焦点环过渡之外的功能性变换不靠动画呈现，故整体置为近乎瞬时。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

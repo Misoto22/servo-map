@@ -15,7 +15,12 @@ import MapGL, {
 } from "react-map-gl";
 import type { ExpressionSpecification } from "mapbox-gl";
 import type { StationWithDistance, FuelType } from "@servo-map/shared";
-import { getFuelPrice, formatPriceCents, computePriceRange } from "@/lib/utils";
+import {
+  getFuelPrice,
+  formatPriceCents,
+  computePriceRange,
+  tierHex,
+} from "@/lib/utils";
 import { useTheme } from "@/providers/ThemeProvider";
 import { usePriceRange } from "@/providers/PriceRangeProvider";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -34,11 +39,6 @@ const SOURCE_ID = "stations";
 const CLUSTER_LAYER_ID = "clusters";
 const CLUSTER_COUNT_LAYER_ID = "cluster-count";
 const POINT_LAYER_ID = "unclustered-point";
-
-// 价格档位颜色，沿用 utils.priceColorHex 的语义（cheap 绿 / mid 黄 / expensive 红）
-const TIER_CHEAP = "#4ADE80";
-const TIER_MID = "#FBBF24";
-const TIER_EXPENSIVE = "#F87171";
 
 // 站点 feature 的属性载荷。tier 用 0/1/2 编码便于在样式表达式里 match。
 interface StationFeatureProps {
@@ -247,20 +247,21 @@ export function MapView({
     if (map) map.getCanvas().style.cursor = "";
   }, []);
 
-  // 档位 → 颜色的数据驱动表达式，单站点文字共用
+  // 档位 → 颜色的数据驱动表达式，单站点文字共用。
+  // 颜色随主题切换：浅色底图用更深的同色系以满足 WCAG AA 对比度（见 utils.tierHex）。
   const tierColor = useMemo<ExpressionSpecification>(
     () => [
       "match",
       ["get", "tier"],
       0,
-      TIER_CHEAP,
+      tierHex("cheap", theme),
       1,
-      TIER_MID,
+      tierHex("fair", theme),
       2,
-      TIER_EXPENSIVE,
-      TIER_MID,
+      tierHex("pricey", theme),
+      tierHex("fair", theme),
     ],
-    [],
+    [theme],
   );
 
   const clusterLayer: CircleLayer = {
@@ -372,6 +373,36 @@ export function MapView({
           </Source>
         )}
       </MapGL>
+
+      {/* 价格档位图例 — 颜色之外再给文字标签，避免色觉依赖（WCAG 1.4.1）。
+          桌面端常驻；移动端被底部抽屉遮挡，故 md 以下隐藏，列表是其无障碍替代路径。 */}
+      <div
+        className="hidden md:block absolute bottom-6 left-4 z-10 glass rounded-[var(--radius-card)] border border-border-subtle shadow-card px-3 py-2 pointer-events-none"
+        aria-hidden="true"
+      >
+        <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1.5">
+          Price · relative to nearby
+        </p>
+        <ul className="flex items-center gap-3">
+          {(
+            [
+              ["cheap", "Cheap"],
+              ["fair", "Fair"],
+              ["pricey", "Pricey"],
+            ] as const
+          ).map(([tier, label]) => (
+            <li key={tier} className="flex items-center gap-1.5">
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: tierHex(tier, theme) }}
+              />
+              <span className="text-[11px] font-medium text-text-secondary">
+                {label}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

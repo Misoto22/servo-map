@@ -89,11 +89,17 @@ export function StationList({
 
         <div className="flex items-center gap-2">
           {/* 排序切换 */}
-          <div className="flex gap-1 bg-surface rounded-lg p-0.5 flex-1">
+          <div
+            role="group"
+            aria-label="Sort stations"
+            className="flex gap-1 bg-surface rounded-lg p-0.5 flex-1"
+          >
             {(["price", "distance"] as const).map((mode) => (
               <button
                 key={mode}
+                type="button"
                 onClick={() => onSortChange(mode)}
+                aria-pressed={sortBy === mode}
                 className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-all duration-[var(--duration-fast)] ${
                   sortBy === mode
                     ? "bg-surface-elevated text-text shadow-sm"
