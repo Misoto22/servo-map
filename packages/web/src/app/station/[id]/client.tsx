@@ -6,7 +6,10 @@ import type { StationWithDistance, FuelType } from "@servo-map/shared";
 import { PriceTag } from "@/components/stations/PriceTag";
 import { FreshnessBadge } from "@/components/stations/FreshnessBadge";
 import { StaleBanner } from "@/components/stations/StaleBanner";
+import { FavouriteButton } from "@/components/stations/FavouriteButton";
+import { ShareButton } from "@/components/stations/ShareButton";
 import { PriceRangeProvider } from "@/providers/PriceRangeProvider";
+import { useFavourites } from "@/hooks/useFavourites";
 import { timeAgo } from "@/lib/utils";
 
 interface Props {
@@ -17,6 +20,7 @@ interface Props {
 
 export function StationPageClient({ station, lastUpdated }: Props) {
   const [selectedFuel, setSelectedFuel] = useState<FuelType>("U91");
+  const { isFavourite, toggle } = useFavourites();
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
 
   return (
@@ -41,9 +45,17 @@ export function StationPageClient({ station, lastUpdated }: Props) {
       <main className="max-w-3xl mx-auto px-4 py-8">
         {/* 站点信息 */}
         <div className="animate-slide-up">
-          <span className="text-xs font-semibold uppercase tracking-wider text-ochre bg-ochre/10 px-2 py-1 rounded">
-            {station.brand}
-          </span>
+          <div className="flex items-start justify-between gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-ochre bg-ochre/10 px-2 py-1 rounded">
+              {station.brand}
+            </span>
+            <FavouriteButton
+              active={isFavourite(station.id)}
+              onToggle={() => toggle(station.id)}
+              size="md"
+              className="-mt-1"
+            />
+          </div>
           <h1 className="font-display font-bold text-3xl mt-3 text-text">
             {station.name}
           </h1>
@@ -89,8 +101,8 @@ export function StationPageClient({ station, lastUpdated }: Props) {
           </div>
         </section>
 
-        {/* Directions */}
-        <div className="mt-8 animate-slide-up delay-2">
+        {/* Actions */}
+        <div className="mt-8 flex flex-wrap items-center gap-3 animate-slide-up delay-2">
           <a
             href={directionsUrl}
             target="_blank"
@@ -102,6 +114,11 @@ export function StationPageClient({ station, lastUpdated }: Props) {
             </svg>
             Get Directions
           </a>
+          <ShareButton
+            title={`${station.brand} ${station.name} — ServoMap`}
+            path={`/station/${station.id}`}
+            className="px-6 py-3 bg-surface-elevated text-text border border-border-subtle hover:bg-surface-hover"
+          />
         </div>
       </main>
 
