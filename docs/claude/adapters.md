@@ -120,7 +120,7 @@ import { waAdapter } from "./wa";
 export const adapters: readonly StateAdapter[] = [nswAdapter, qldAdapter, waAdapter];
 ```
 
-That's it — both the Worker cron handler and `scripts/fetch-data.ts` import this list.
+That's it — the GitHub Actions ingest (`scripts/fetch-data.ts`) imports this list directly, so a new adapter is picked up with no further wiring.
 
 ### 6. Add tests
 
@@ -145,13 +145,13 @@ See `docs/claude/testing.md` for framework setup.
 # Put the new secret in .dev.vars
 pnpm dev:worker &
 
-# Trigger the cron handler manually via a script, OR:
-npx tsx scripts/fetch-data.ts  # after exporting env vars
+# Run the ingest script to populate KV (after exporting env vars):
+npx tsx scripts/fetch-data.ts
 ```
 
 Confirm:
 
-- Logs show `[cron] wa: fetched N stations`.
+- Logs show `[fetch-data] WA: N stations`.
 - `curl http://localhost:8787/api/v1/stations?state=wa | jq '.data | length'` returns N.
 - `curl http://localhost:8787/api/v1/metadata | jq .wa` has a fresh `last_updated`.
 
