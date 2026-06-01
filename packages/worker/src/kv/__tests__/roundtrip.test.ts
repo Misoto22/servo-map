@@ -1,0 +1,100 @@
+import { describe, it, expect } from "vitest";
+import type { Station } from "@servo-map/shared";
+import { createMemoryKV } from "../__mocks__/memory-kv";
+import { writeStations, writeBrands, writeMetadata } from "../write";
+import {
+  readStationsByState,
+  readStationById,
+  readBrands,
+  readMetadata,
+} from "../read";
+
+const fixtureStations: Station[] = [
+  {
+    id: "nsw-1",
+    name: "Caltex Sydney",
+    brand: "Caltex",
+    address: "1 Test St",
+    suburb: "Sydney",
+    state: "nsw",
+    postcode: "2000",
+    lat: -33.8688,
+    lng: 151.2093,
+    prices: [
+      { fuel: "U91", price: 189.5, updated_at: "2026-03-28T00:00:00Z" },
+      { fuel: "Diesel", price: 205.0, updated_at: "2026-03-28T00:00:00Z" },
+    ],
+  },
+  {
+    id: "nsw-2",
+    name: "BP Parramatta",
+    brand: "BP",
+    address: "2 Other St",
+    suburb: "Parramatta",
+    state: "nsw",
+    postcode: "2150",
+    lat: -33.815,
+    lng: 151.0,
+    prices: [
+      { fuel: "U91", price: 188.9, updated_at: "2026-03-28T00:00:00Z" },
+    ],
+  },
+];
+
+describe("KV round-trip", () => {
+  it("writeStations → readStationsByState preserves data", async () => {
+    const kv = createMemoryKV();
+    await writeStations(kv, "nsw", fixtureStations);
+    const out = await readStationsByState(kv, "nsw");
+    expect(out).toEqual(fixtureStations);
+  });
+
+  it("writeStations also writes per-id entries for readStationById", async () => {
+    const kv = createMemoryKV();
+    await writeStations(kv, "nsw", fixtureStations);
+    const one = await readStationById(kv, "nsw-1");
+    expect(one).toEqual(fixtureStations[0]);
+  });
+
+  it("readStationsByState returns [] for unknown state", async () => {
+    const kv = createMemoryKV();
+    const out = await readStationsByState(kv, "wa");
+    expect(out).toEqual([]);
+  });
+
+  it("writeBrands stores and reads back", async () => {
+    const kv = createMemoryKV();
+    await writeBrands(kv, ["BP", "Caltex", "Shell"]);
+    expect(await readBrands(kv)).toEqual(["BP", "Caltex", "Shell"]);
+  });
+});
+
+describe("writeMetadata merge semantics", () => {
+  it("preserves states that didn't update", async () => {
+    const kv = createMemoryKV();
+    await writeMetadata(kv, {
+      nsw: { last_updated: "2026-03-28T00:00:00Z", station_count: 100 },
+    });
+    await writeMetadata(kv, {
+      qld: { last_updated: "2026-03-28T00:15:00Z", station_count: 50 },
+    });
+    const meta = await readMetadata(kv);
+    expect(meta.nsw).toBeDefined();
+    expect(meta.qld).toBeDefined();
+    expect(meta.nsw.station_count).toBe(100);
+    expect(meta.qld.station_count).toBe(50);
+  });
+
+  it("overwrites a state when it does update", async () => {
+    const kv = createMemoryKV();
+    await writeMetadata(kv, {
+      nsw: { last_updated: "2026-03-28T00:00:00Z", station_count: 100 },
+    });
+    await writeMetadata(kv, {
+      nsw: { last_updated: "2026-03-28T00:15:00Z", station_count: 105 },
+    });
+    const meta = await readMetadata(kv);
+    expect(meta.nsw.station_count).toBe(105);
+    expect(meta.nsw.last_updated).toBe("2026-03-28T00:15:00Z");
+  });
+});
