@@ -10,8 +10,18 @@ import {
   type PaginationMeta,
 } from "@servo-map/shared";
 import type { Env } from "../env";
-import { readStationsByState, readStationById } from "../kv/read";
+import { readStationsByState, readStationById, readMetadata } from "../kv/read";
 import { haversine } from "../utils/geo";
+
+// 默认读取的州集合：从 metadata 派生出有真实数据（station_count > 0）的州，
+// 避免对空州发起无意义的 KV 读取并过度声明覆盖范围。无 metadata 时回退到 nsw。
+async function defaultStatesToRead(kv: KVNamespace): Promise<AustralianState[]> {
+  const metadata = await readMetadata(kv);
+  const live = (Object.entries(metadata) as [AustralianState, { station_count: number }][])
+    .filter(([state, m]) => AUSTRALIAN_STATES.includes(state) && m.station_count > 0)
+    .map(([state]) => state);
+  return live.length ? live : (["nsw"] as AustralianState[]);
+}
 
 export const stationsRoute = new Hono<{ Bindings: Env }>();
 
@@ -47,8 +57,8 @@ stationsRoute.get("/", async (c) => {
     return c.json({ status: "error", message: "lat, lng, and radius must all be provided", code: "INVALID_GEO" }, 400);
   }
 
-  // 确定需要读取哪些州的数据
-  const statesToRead = stateParam ?? (["nsw", "qld", "tas", "act"] as AustralianState[]);
+  // 确定需要读取哪些州的数据：显式 state 参数优先，否则从 metadata 派生 live 州
+  const statesToRead = stateParam ?? (await defaultStatesToRead(c.env.KV));
   const chunks = await Promise.all(
     statesToRead.map((s) => readStationsByState(c.env.KV, s)),
   );

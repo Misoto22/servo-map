@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import type { Station, ApiResponse, StationWithDistance } from "@servo-map/shared";
 import { stationsRoute } from "../stations";
-import { writeStations } from "../../kv/write";
+import { writeStations, writeMetadata } from "../../kv/write";
 import { createMemoryKV } from "../../kv/__mocks__/memory-kv";
 import type { Env } from "../../env";
 
@@ -80,6 +80,11 @@ async function seed(): Promise<void> {
   const kv = createMemoryKV();
   await writeStations(kv, "nsw", NSW_STATIONS);
   await writeStations(kv, "qld", QLD_STATIONS);
+  // 默认读取的州集合由 metadata 派生（station_count > 0），所以测试需写入 metadata
+  await writeMetadata(kv, {
+    nsw: { last_updated: "2026-05-01T00:00:00Z", station_count: NSW_STATIONS.length },
+    qld: { last_updated: "2026-05-01T00:00:00Z", station_count: QLD_STATIONS.length },
+  });
   env = {
     KV: kv,
     NSW_API_KEY: "",
@@ -112,6 +117,32 @@ describe("GET /stations", () => {
   it("filters by state (comma-separated)", async () => {
     const { body } = await listStations("?state=qld");
     expect(body.data.map((s) => s.id)).toEqual(["qld-1"]);
+  });
+
+  it("default state set derives from metadata (skips states with station_count 0)", async () => {
+    // qld 数据已写入但 metadata 标记为空 → 默认查询不应包含 qld
+    const kv = createMemoryKV();
+    await writeStations(kv, "nsw", NSW_STATIONS);
+    await writeStations(kv, "qld", QLD_STATIONS);
+    await writeMetadata(kv, {
+      nsw: { last_updated: "2026-05-01T00:00:00Z", station_count: NSW_STATIONS.length },
+      qld: { last_updated: "2026-05-01T00:00:00Z", station_count: 0 },
+    });
+    const onlyNswEnv: Env = { KV: kv, NSW_API_KEY: "", NSW_API_AUTH: "", QLD_API_TOKEN: "" };
+    const res = await stationsRoute.request("/", {}, onlyNswEnv);
+    const body = (await res.json()) as ApiResponse<StationWithDistance[]>;
+    expect(body.data.map((s) => s.id).sort()).toEqual(["nsw-1", "nsw-2", "nsw-3"]);
+  });
+
+  it("falls back to nsw when metadata is empty", async () => {
+    // 无 metadata → 回退到 nsw（只读取 nsw chunk）
+    const kv = createMemoryKV();
+    await writeStations(kv, "nsw", NSW_STATIONS);
+    await writeStations(kv, "qld", QLD_STATIONS);
+    const noMetaEnv: Env = { KV: kv, NSW_API_KEY: "", NSW_API_AUTH: "", QLD_API_TOKEN: "" };
+    const res = await stationsRoute.request("/", {}, noMetaEnv);
+    const body = (await res.json()) as ApiResponse<StationWithDistance[]>;
+    expect(body.data.map((s) => s.state)).toEqual(["nsw", "nsw", "nsw"]);
   });
 
   it("filters by brand case-insensitively", async () => {
