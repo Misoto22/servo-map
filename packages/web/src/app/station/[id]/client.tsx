@@ -16,9 +16,11 @@ interface Props {
   station: StationWithDistance;
   /** 该州数据最后更新时间（ISO 串），来自 metadata 端点 */
   lastUpdated: string | null;
+  /** 站点所属郊区页链接，例如 /fuel/nsw/umina-beach */
+  suburbHref: string;
 }
 
-export function StationPageClient({ station, lastUpdated }: Props) {
+export function StationPageClient({ station, lastUpdated, suburbHref }: Props) {
   const [selectedFuel, setSelectedFuel] = useState<FuelType>("U91");
   const { isFavourite, toggle } = useFavourites();
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}`;
@@ -26,20 +28,41 @@ export function StationPageClient({ station, lastUpdated }: Props) {
   return (
     <PriceRangeProvider stations={[station]} selectedFuel={selectedFuel}>
     <div className="min-h-screen bg-bg">
-      {/* Header */}
+      {/* Header — 面包屑 Map › 州 › 郊区（让站点页可向上回到郊区，而非只有 Map） */}
       <header className="border-b border-border-subtle">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
+        <nav
+          aria-label="Breadcrumb"
+          className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-2 text-sm text-text-secondary"
+        >
           <Link
             href="/"
-            className="flex items-center gap-2 text-text-secondary hover:text-text transition-colors"
+            className="flex items-center gap-2 hover:text-text transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M19 12H5" />
               <path d="M12 19l-7-7 7-7" />
             </svg>
-            <span className="text-sm">Map</span>
+            <span>Map</span>
           </Link>
-        </div>
+          <span className="text-text-muted" aria-hidden="true">
+            /
+          </span>
+          <Link
+            href={`/fuel/${station.state.toLowerCase()}`}
+            className="hover:text-text transition-colors"
+          >
+            {station.state.toUpperCase()}
+          </Link>
+          <span className="text-text-muted" aria-hidden="true">
+            /
+          </span>
+          <Link
+            href={suburbHref}
+            className="hover:text-text transition-colors truncate"
+          >
+            {station.suburb}
+          </Link>
+        </nav>
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-8">
@@ -63,6 +86,16 @@ export function StationPageClient({ station, lastUpdated }: Props) {
             {station.address}, {station.suburb} {station.state.toUpperCase()}{" "}
             {station.postcode}
           </p>
+          <Link
+            href={suburbHref}
+            className="inline-flex items-center gap-1 mt-3 text-sm text-ochre hover:text-ochre-dim transition-colors"
+          >
+            Compare all fuel in {station.suburb}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14" />
+              <path d="M12 5l7 7-7 7" />
+            </svg>
+          </Link>
           {lastUpdated && (
             <div className="mt-3">
               <FreshnessBadge lastUpdated={lastUpdated} />
@@ -125,8 +158,14 @@ export function StationPageClient({ station, lastUpdated }: Props) {
       {/* Footer */}
       <footer className="border-t border-border-subtle mt-16">
         <div className="max-w-3xl mx-auto px-4 py-6 text-center text-xs text-text-muted">
-          Prices sourced from state government APIs.
-          {lastUpdated ? ` Last updated ${timeAgo(lastUpdated)}.` : ""}
+          Prices sourced from state government fuel-price feeds.
+          {lastUpdated ? ` Last updated ${timeAgo(lastUpdated)}.` : ""}{" "}
+          <Link
+            href="/about"
+            className="text-ochre hover:text-ochre-dim transition-colors"
+          >
+            How it works
+          </Link>
         </div>
       </footer>
     </div>
