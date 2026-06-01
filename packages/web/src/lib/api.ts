@@ -23,7 +23,7 @@ export async function getStations(params?: {
   lat?: number;
   lng?: number;
   radius?: number;
-  sort?: "price" | "distance";
+  sort?: "price_asc" | "price_desc";
   limit?: number;
   offset?: number;
 }): Promise<ApiResponse<StationWithDistance[]>> {

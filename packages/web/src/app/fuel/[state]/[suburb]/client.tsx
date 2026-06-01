@@ -12,7 +12,7 @@ interface Props {
   suburbName: string;
   stateName: string;
   stations: StationWithDistance[];
-  cheapestU91: number;
+  cheapestU91: number | null;
 }
 
 export function SuburbPageClient({
@@ -62,12 +62,14 @@ export function SuburbPageClient({
             {stateName} &middot; {stations.length} station
             {stations.length !== 1 ? "s" : ""}
           </p>
-          <div className="mt-6 inline-flex items-baseline gap-2 bg-surface-elevated rounded-[var(--radius-card)] px-5 py-3 border border-border-subtle">
-            <span className="text-xs text-text-muted uppercase tracking-wider">
-              Cheapest U91
-            </span>
-            <PriceTag cents={cheapestU91} size="xl" />
-          </div>
+          {cheapestU91 != null && (
+            <div className="mt-6 inline-flex items-baseline gap-2 bg-surface-elevated rounded-[var(--radius-card)] px-5 py-3 border border-border-subtle">
+              <span className="text-xs text-text-muted uppercase tracking-wider">
+                Cheapest U91
+              </span>
+              <PriceTag cents={cheapestU91} size="xl" />
+            </div>
+          )}
         </div>
       </section>
 
