@@ -38,6 +38,24 @@ export interface StateMetadata {
   station_count: number;
 }
 
+/** Daily price roll-up for one state + fuel, captured by the ingest cron */
+export interface PriceSnapshot {
+  /** Calendar date in YYYY-MM-DD (UTC), one entry per day */
+  date: string;
+  fuel: FuelType;
+  min: number;
+  avg: number;
+  max: number;
+  /** How many stations reported this fuel on this day */
+  station_count: number;
+}
+
+/** A rolling time series of daily snapshots for a single state */
+export interface PriceTrend {
+  state: AustralianState;
+  series: PriceSnapshot[];
+}
+
 export interface ApiResponse<T> {
   status: "success";
   data: T;

@@ -15,9 +15,15 @@ import type {
   Station,
   AustralianState,
   StateMetadata,
+  PriceSnapshot,
 } from "@servo-map/shared";
 import { adapters } from "../packages/worker/src/adapters/index";
 import { KV_KEYS } from "../packages/worker/src/kv/keys";
+import {
+  computeDailySnapshots,
+  mergeDailySnapshots,
+  utcDate,
+} from "../packages/worker/src/utils/price-history";
 import type { Env } from "../packages/worker/src/env";
 
 // 当某州本次抓取数量低于上次的该比例时，跳过覆盖以保护 KV 中的健康数据
@@ -156,6 +162,8 @@ async function main() {
   // 写入按州 chunk，带最小数量护栏
   const metadataUpdates: Record<string, StateMetadata> = {};
   const writtenStations: Station[] = [];
+  // 实际写入的州 → 站点，用于价格历史 roll-up（仅记录通过护栏的健康数据）
+  const writtenByState = new Map<AustralianState, Station[]>();
   for (const [state, stations] of grouped) {
     const prev = existingMeta[state]?.station_count ?? 0;
     if (
@@ -175,6 +183,7 @@ async function main() {
       station_count: stations.length,
     };
     writtenStations.push(...stations);
+    writtenByState.set(state, stations);
   }
 
   if (writtenStations.length === 0) {
@@ -205,9 +214,44 @@ async function main() {
     })),
   );
 
+  // 价格历史每日 roll-up（成功 ingest 后追加，幂等、每州每天一条）
+  await capturePriceHistory(writtenByState);
+
   console.log(
     `[fetch-data] Done: ${writtenStations.length} stations written, ${brands.length} brands`,
   );
+}
+
+/**
+ * 为本次实际写入的每个州追加当日价格快照。
+ *
+ * 廉价且幂等：读取既有 history:{state}，移除当天旧条目后写入最新快照，
+ * 同一天多次运行只保留最后一次。单州失败不影响其他州，也不影响主流程。
+ * 日期由 Node 运行时时钟（标准 JS Date API）戳记 —— 这是应用脚本，可用。
+ */
+async function capturePriceHistory(
+  writtenByState: Map<AustralianState, Station[]>,
+): Promise<void> {
+  const date = utcDate(new Date());
+  for (const [state, stations] of writtenByState) {
+    try {
+      const today = computeDailySnapshots(stations, date);
+      if (today.length === 0) continue;
+
+      const existingRaw = await kvGet(KV_KEYS.priceHistory(state));
+      const existing: PriceSnapshot[] = existingRaw ? JSON.parse(existingRaw) : [];
+      const merged = mergeDailySnapshots(existing, today, date);
+
+      await kvPut(KV_KEYS.priceHistory(state), JSON.stringify(merged));
+      console.log(
+        `[fetch-data] ${state}: captured ${today.length} fuel snapshots for ${date} ` +
+          `(${merged.length} total entries)`,
+      );
+    } catch (err) {
+      // 历史是次要副作用 —— 失败仅告警，不让主流程退出
+      console.error(`[fetch-data] ${state}: price history capture failed —`, err);
+    }
+  }
 }
 
 main().catch((err) => {

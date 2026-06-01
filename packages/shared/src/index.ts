@@ -6,6 +6,8 @@ export type {
   StationWithDistance,
   PaginationMeta,
   StateMetadata,
+  PriceSnapshot,
+  PriceTrend,
   ApiResponse,
   ApiErrorResponse,
 } from "./types";

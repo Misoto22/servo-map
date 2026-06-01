@@ -57,6 +57,12 @@ stationsRoute.get("/", async (c) => {
     return c.json({ status: "error", message: "lat, lng, and radius must all be provided", code: "INVALID_GEO" }, 400);
   }
 
+  // 边缘缓存：读路由数据每 ~15 分钟更新一次，短 TTL + SWR 即可
+  c.header(
+    "Cache-Control",
+    "public, max-age=60, s-maxage=120, stale-while-revalidate=600",
+  );
+
   // 确定需要读取哪些州的数据：显式 state 参数优先，否则从 metadata 派生 live 州
   const statesToRead = stateParam ?? (await defaultStatesToRead(c.env.KV));
   const chunks = await Promise.all(
