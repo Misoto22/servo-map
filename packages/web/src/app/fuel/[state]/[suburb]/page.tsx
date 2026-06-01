@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import type { StationWithDistance } from "@servo-map/shared";
-import { getStations } from "@/lib/api";
+import type { StationWithDistance, AustralianState } from "@servo-map/shared";
+import { getStations, getMetadata } from "@/lib/api";
+import { latestUpdatedAt } from "@/lib/coverage";
 import { SuburbPageClient } from "./client";
 
 // ISR: regenerate at most every 15 minutes, generate unknown suburbs on demand.
@@ -48,6 +49,16 @@ async function loadSuburbStations(
   }
 }
 
+/** Real last-updated time for this state, from the metadata endpoint. */
+async function loadStateUpdatedAt(state: string): Promise<string | null> {
+  try {
+    const { data } = await getMetadata();
+    return latestUpdatedAt(data, [state as AustralianState]);
+  } catch {
+    return null;
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { state, suburb } = await params;
   const suburbName = toTitleCase(suburb);
@@ -68,7 +79,10 @@ export default async function SuburbPage({ params }: Props) {
   const { state, suburb } = await params;
   const suburbName = toTitleCase(suburb);
 
-  const stations = await loadSuburbStations(state, suburb);
+  const [stations, lastUpdated] = await Promise.all([
+    loadSuburbStations(state, suburb),
+    loadStateUpdatedAt(state),
+  ]);
   if (stations.length === 0) notFound();
 
   // Cheapest U91 across the suburb — null if no station sells U91.
@@ -122,6 +136,7 @@ export default async function SuburbPage({ params }: Props) {
         stateName={state.toUpperCase()}
         stations={stations}
         cheapestU91={cheapestU91}
+        lastUpdated={lastUpdated}
       />
     </>
   );

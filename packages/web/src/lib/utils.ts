@@ -83,6 +83,28 @@ export function timeAgo(dateStr: string): string {
   return `${diffDay}d ago`;
 }
 
+/** 数据新鲜度等级 */
+export type FreshnessLevel = "live" | "recent" | "stale";
+
+/**
+ * 根据 last_updated ISO 时间把数据分级：
+ * - live   < 1h（绿）
+ * - recent < 12h（黄）
+ * - stale  >= 12h（红）
+ * 6h 为 recent 内部的次级提示边界（amber 加深），见 FreshnessBadge。
+ */
+export function freshnessLevel(dateStr: string): FreshnessLevel {
+  const diffHr = (Date.now() - new Date(dateStr).getTime()) / 3_600_000;
+  if (diffHr < 1) return "live";
+  if (diffHr < 12) return "recent";
+  return "stale";
+}
+
+/** 数据是否已过期（> ~12h），用于展示横幅告警 */
+export function isStale(dateStr: string): boolean {
+  return freshnessLevel(dateStr) === "stale";
+}
+
 /**
  * classnames 简易合并工具
  */

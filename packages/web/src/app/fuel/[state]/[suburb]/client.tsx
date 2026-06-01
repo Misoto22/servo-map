@@ -5,6 +5,8 @@ import Link from "next/link";
 import type { StationWithDistance, FuelType } from "@servo-map/shared";
 import { FUEL_TYPES } from "@servo-map/shared";
 import { PriceTag } from "@/components/stations/PriceTag";
+import { FreshnessBadge } from "@/components/stations/FreshnessBadge";
+import { StaleBanner } from "@/components/stations/StaleBanner";
 import { PriceRangeProvider } from "@/providers/PriceRangeProvider";
 import { cn, getFuelPrice, timeAgo } from "@/lib/utils";
 
@@ -13,6 +15,8 @@ interface Props {
   stateName: string;
   stations: StationWithDistance[];
   cheapestU91: number | null;
+  /** 该州数据最后更新时间（ISO 串），来自 metadata 端点 */
+  lastUpdated: string | null;
 }
 
 export function SuburbPageClient({
@@ -20,6 +24,7 @@ export function SuburbPageClient({
   stateName,
   stations,
   cheapestU91,
+  lastUpdated,
 }: Props) {
   const [selectedFuel, setSelectedFuel] = useState<FuelType>("U91");
 
@@ -58,10 +63,14 @@ export function SuburbPageClient({
           <h1 className="font-display font-bold text-4xl md:text-5xl text-text">
             {suburbName}
           </h1>
-          <p className="text-text-secondary mt-2 text-lg">
-            {stateName} &middot; {stations.length} station
-            {stations.length !== 1 ? "s" : ""}
-          </p>
+          <div className="flex flex-wrap items-center gap-3 mt-2">
+            <p className="text-text-secondary text-lg">
+              {stateName} &middot; {stations.length} station
+              {stations.length !== 1 ? "s" : ""}
+            </p>
+            {lastUpdated && <FreshnessBadge lastUpdated={lastUpdated} />}
+          </div>
+          {lastUpdated && <StaleBanner lastUpdated={lastUpdated} className="mt-4 max-w-md" />}
           {cheapestU91 != null && (
             <div className="mt-6 inline-flex items-baseline gap-2 bg-surface-elevated rounded-[var(--radius-card)] px-5 py-3 border border-border-subtle">
               <span className="text-xs text-text-muted uppercase tracking-wider">
@@ -156,8 +165,10 @@ export function SuburbPageClient({
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-text-muted">
             <p>
-              Prices sourced from state government APIs. Updated every 15
-              minutes.
+              Prices sourced from state government APIs.
+              {lastUpdated
+                ? ` Last updated ${timeAgo(lastUpdated)}.`
+                : ""}
             </p>
             <Link
               href="/"

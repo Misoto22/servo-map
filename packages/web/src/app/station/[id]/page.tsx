@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import type { Station } from "@servo-map/shared";
-import { getStation } from "@/lib/api";
+import type { Station, AustralianState } from "@servo-map/shared";
+import { getStation, getMetadata } from "@/lib/api";
+import { latestUpdatedAt } from "@/lib/coverage";
 import { StationPageClient } from "./client";
 
 // ISR: regenerate at most every 15 minutes, generate unknown stations on demand.
@@ -27,6 +28,16 @@ async function loadStation(id: string): Promise<Station | null> {
   }
 }
 
+/** Real last-updated time for this station's state, from the metadata endpoint. */
+async function loadStateUpdatedAt(state: AustralianState): Promise<string | null> {
+  try {
+    const { data } = await getMetadata();
+    return latestUpdatedAt(data, [state]);
+  } catch {
+    return null;
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const station = await loadStation(id);
@@ -47,6 +58,8 @@ export default async function StationPage({ params }: Props) {
   const { id } = await params;
   const station = await loadStation(id);
   if (!station) notFound();
+
+  const lastUpdated = await loadStateUpdatedAt(station.state);
 
   // JSON-LD: GasStation with geo + current fuel offers (price per litre, AUD).
   const jsonLd = {
@@ -84,7 +97,7 @@ export default async function StationPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <StationPageClient station={station} />
+      <StationPageClient station={station} lastUpdated={lastUpdated} />
     </>
   );
 }
