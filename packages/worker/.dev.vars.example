@@ -10,3 +10,6 @@ NSW_API_AUTH=
 # QLD Fuel Prices Subscriber API
 # Register at https://www.fuelpricesqld.com.au/
 QLD_API_TOKEN=
+
+# WA FuelWatch is a PUBLIC RSS feed — no key or registration required.
+# https://www.fuelwatch.wa.gov.au/fuelwatch/fuelWatchRSS

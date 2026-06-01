@@ -75,3 +75,21 @@ export interface QldSitePrice {
   Price: number;        // 0.1 cent units
   TransactionDateUtc: string;
 }
+
+// --- WA FuelWatch RSS raw types ---
+// 公开 RSS feed，无需认证。每次请求返回单一 Product（油种），
+// 每个 <item> 是一个站点的当日价格。feed 无站点 id / 邮编。
+// price 已是 cents/L（如 157.3）。
+
+export interface WaFeedItem {
+  /** 商家名（trading-name），用于派生站点身份 */
+  tradingName: string;
+  brand: string;
+  address: string;
+  /** suburb（feed 中的 <location>） */
+  location: string;
+  lat: number;
+  lng: number;
+  /** cents/L，已是最终单位 */
+  price: number;
+}
