@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import type { Station, AustralianState } from "@servo-map/shared";
 import { getStation, getMetadata } from "@/lib/api";
 import { latestUpdatedAt } from "@/lib/coverage";
+import { suburbToSlug } from "@/lib/seo";
+import { SITE_URL } from "@/lib/site";
 import { StationPageClient } from "./client";
 
 // ISR: regenerate at most every 15 minutes, generate unknown stations on demand.
@@ -61,6 +63,11 @@ export default async function StationPage({ params }: Props) {
 
   const lastUpdated = await loadStateUpdatedAt(station.state);
 
+  // 站点所属郊区页的链接（用于面包屑 + 客户端 backlink）
+  const stateLower = station.state.toLowerCase();
+  const suburbSlug = suburbToSlug(station.suburb);
+  const suburbHref = `/fuel/${stateLower}/${suburbSlug}`;
+
   // JSON-LD: GasStation with geo + current fuel offers (price per litre, AUD).
   const jsonLd = {
     "@context": "https://schema.org",
@@ -91,13 +98,48 @@ export default async function StationPage({ params }: Props) {
     })),
   };
 
+  // BreadcrumbList JSON-LD: Home › State hub › Suburb › Station
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: `${station.state.toUpperCase()} Fuel Prices`,
+        item: `${SITE_URL}/fuel/${stateLower}`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: station.suburb,
+        item: `${SITE_URL}${suburbHref}`,
+      },
+      {
+        "@type": "ListItem",
+        position: 4,
+        name: station.name,
+        item: `${SITE_URL}/station/${id}`,
+      },
+    ],
+  };
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <StationPageClient station={station} lastUpdated={lastUpdated} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
+      <StationPageClient
+        station={station}
+        lastUpdated={lastUpdated}
+        suburbHref={suburbHref}
+      />
     </>
   );
 }

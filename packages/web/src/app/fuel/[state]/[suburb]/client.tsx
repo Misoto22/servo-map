@@ -10,21 +10,39 @@ import { StaleBanner } from "@/components/stations/StaleBanner";
 import { PriceRangeProvider } from "@/providers/PriceRangeProvider";
 import { cn, getFuelPrice, timeAgo } from "@/lib/utils";
 
+interface NearbySuburb {
+  slug: string;
+  name: string;
+  stationCount: number;
+}
+
 interface Props {
   suburbName: string;
   stateName: string;
+  /** 小写州码，用于内链（/fuel/<state> 与 /fuel/<state>/<suburb>） */
+  stateSlug: string;
   stations: StationWithDistance[];
   cheapestU91: number | null;
   /** 该州数据最后更新时间（ISO 串），来自 metadata 端点 */
   lastUpdated: string | null;
+  /** 模板化正文段落（由真实数据驱动） */
+  prose: string[];
+  /** FAQ 问答（同时驱动 FAQPage 结构化数据） */
+  faqs: { q: string; a: string }[];
+  /** 邻近郊区交叉链接 */
+  nearby: NearbySuburb[];
 }
 
 export function SuburbPageClient({
   suburbName,
   stateName,
+  stateSlug,
   stations,
   cheapestU91,
   lastUpdated,
+  prose,
+  faqs,
+  nearby,
 }: Props) {
   const [selectedFuel, setSelectedFuel] = useState<FuelType>("U91");
 
@@ -38,20 +56,38 @@ export function SuburbPageClient({
   return (
     <PriceRangeProvider stations={stations} selectedFuel={selectedFuel}>
     <div className="min-h-screen bg-bg">
-      {/* Header */}
+      {/* Header — 面包屑式导航：Map › 州 hub › 当前郊区 */}
       <header className="border-b border-border-subtle">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
+        <nav
+          aria-label="Breadcrumb"
+          className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-2 text-sm text-text-secondary"
+        >
           <Link
             href="/"
-            className="flex items-center gap-2 text-text-secondary hover:text-text transition-colors"
+            className="flex items-center gap-2 hover:text-text transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M19 12H5" />
               <path d="M12 19l-7-7 7-7" />
             </svg>
-            <span className="text-sm">Map</span>
+            <span>Map</span>
           </Link>
-        </div>
+          <span className="text-text-muted" aria-hidden="true">
+            /
+          </span>
+          <Link
+            href={`/fuel/${stateSlug}`}
+            className="hover:text-text transition-colors"
+          >
+            {stateName}
+          </Link>
+          <span className="text-text-muted" aria-hidden="true">
+            /
+          </span>
+          <span className="text-text" aria-current="page">
+            {suburbName}
+          </span>
+        </nav>
       </header>
 
       {/* Hero */}
@@ -83,6 +119,17 @@ export function SuburbPageClient({
       </section>
 
       <main className="max-w-4xl mx-auto px-4 py-8">
+        {/* 模板化正文：可索引、由真实数据驱动，清除 thin-content */}
+        {prose.length > 0 && (
+          <section className="mb-8 max-w-2xl space-y-3 animate-slide-up">
+            {prose.map((para, i) => (
+              <p key={i} className="text-sm text-text-secondary leading-relaxed">
+                {para}
+              </p>
+            ))}
+          </section>
+        )}
+
         {/* 燃油类型选择 */}
         <div className="flex gap-1 bg-surface rounded-[var(--radius-pill)] p-1 mb-6 w-fit animate-slide-up delay-1">
           {FUEL_TYPES.map((fuel) => (
@@ -158,6 +205,51 @@ export function SuburbPageClient({
             );
           })}
         </div>
+
+        {/* 邻近郊区交叉链接 — 内链密度 + 让爬虫沿郊区图谱深入 */}
+        {nearby.length > 0 && (
+          <section className="mt-12 animate-slide-up">
+            <h2 className="font-display font-bold text-xl text-text mb-4">
+              Nearby suburbs in {stateName}
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {nearby.map((n) => (
+                <Link
+                  key={n.slug}
+                  href={`/fuel/${stateSlug}/${n.slug}`}
+                  className="inline-flex items-baseline gap-2 px-4 py-2 rounded-[var(--radius-pill)] bg-surface-elevated border border-border-subtle text-sm text-text hover:border-ochre/40 hover:bg-surface-hover transition-colors"
+                >
+                  <span className="font-medium">{n.name}</span>
+                  <span className="text-xs text-text-muted">
+                    {n.stationCount}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* FAQ — 可见问答，同时镜像 FAQPage 结构化数据 */}
+        {faqs.length > 0 && (
+          <section className="mt-12 animate-slide-up">
+            <h2 className="font-display font-bold text-xl text-text mb-4">
+              {suburbName} fuel price FAQ
+            </h2>
+            <dl className="space-y-4">
+              {faqs.map((f, i) => (
+                <div
+                  key={i}
+                  className="rounded-[var(--radius-card)] border border-border-subtle bg-surface px-5 py-4"
+                >
+                  <dt className="text-sm font-semibold text-text">{f.q}</dt>
+                  <dd className="text-sm text-text-secondary mt-2 leading-relaxed">
+                    {f.a}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )}
       </main>
 
       {/* Footer */}
@@ -165,16 +257,20 @@ export function SuburbPageClient({
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-text-muted">
             <p>
-              Prices sourced from state government APIs.
-              {lastUpdated
-                ? ` Last updated ${timeAgo(lastUpdated)}.`
-                : ""}
+              Prices sourced from state government fuel-price feeds.
+              {lastUpdated ? ` Last updated ${timeAgo(lastUpdated)}.` : ""}{" "}
+              <Link
+                href="/about"
+                className="text-ochre hover:text-ochre-dim transition-colors"
+              >
+                How it works
+              </Link>
             </p>
             <Link
-              href="/"
+              href={`/fuel/${stateSlug}`}
               className="text-ochre hover:text-ochre-dim transition-colors"
             >
-              ServoMap &mdash; Find cheap fuel across Australia
+              All {stateName} suburbs &rarr;
             </Link>
           </div>
         </div>

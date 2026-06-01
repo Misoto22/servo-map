@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Syne, DM_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { ThemeProvider } from "@/providers/ThemeProvider";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const syne = Syne({
@@ -20,11 +21,17 @@ export const metadata: Metadata = {
   title: "ServoMap — Australian Fuel Prices",
   description:
     "Find the cheapest fuel near you. Real-time petrol and diesel prices across Australia.",
-  metadataBase: new URL("https://servo-map.com"),
+  metadataBase: new URL(SITE_URL),
+  alternates: { canonical: "/" },
   openGraph: {
     title: "ServoMap — Australian Fuel Prices",
     description: "Find the cheapest fuel near you across Australia.",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ServoMap — Australian Fuel Prices",
+    description: "Find the cheapest fuel near you across Australia.",
   },
 };
 
