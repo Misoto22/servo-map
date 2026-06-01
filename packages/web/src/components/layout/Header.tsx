@@ -32,11 +32,18 @@ export function Header({ selectedFuel, onFuelChange }: HeaderProps) {
 
         {/* 燃油类型快捷切换 */}
         <div className="pointer-events-auto animate-fade-in delay-1">
-          <div className="glass rounded-[var(--radius-pill)] border border-border-subtle shadow-float p-1 flex gap-0.5">
+          <div
+            role="group"
+            aria-label="Fuel type"
+            className="glass rounded-[var(--radius-pill)] border border-border-subtle shadow-float p-1 flex gap-0.5"
+          >
             {FUEL_TYPES.map((fuel) => (
               <button
                 key={fuel}
+                type="button"
                 onClick={() => onFuelChange(fuel)}
+                aria-pressed={selectedFuel === fuel}
+                aria-label={`Show ${fuel} prices`}
                 className={cn(
                   "px-3 py-1.5 rounded-[var(--radius-pill)] text-xs font-semibold transition-all duration-[var(--duration-fast)]",
                   selectedFuel === fuel

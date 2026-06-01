@@ -60,7 +60,10 @@ export function SearchBar({
 
   return (
     <div className="fixed top-16 left-1/2 -translate-x-1/2 z-40 w-full max-w-md px-4 animate-slide-up delay-2">
-      <form onSubmit={handleSubmit} className="relative">
+      <form onSubmit={handleSubmit} className="relative" role="search">
+        <label htmlFor="suburb-search" className="sr-only">
+          Search by suburb or postcode
+        </label>
         <div
           className={cn(
             "glass-heavy rounded-[var(--radius-panel)] border shadow-float transition-all duration-[var(--duration-normal)]",
@@ -88,13 +91,18 @@ export function SearchBar({
 
             <input
               ref={inputRef}
-              type="text"
+              id="suburb-search"
+              type="search"
+              enterKeyHint="search"
+              autoComplete="off"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               placeholder="Search suburb or postcode..."
-              className="flex-1 bg-transparent text-sm text-text placeholder:text-text-muted outline-none"
+              // 不抹掉焦点提示：容器本身已有 ochre 焦点环，故输入框内圈 outline 可隐藏，
+              // 键盘焦点的可见反馈由父容器 focused 态承担（避免「移除 outline 无替代」）。
+              className="flex-1 bg-transparent text-sm text-text placeholder:text-text-muted outline-none focus-visible:outline-none"
             />
 
             {/* 快捷键提示 */}

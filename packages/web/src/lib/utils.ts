@@ -28,11 +28,55 @@ export function priceColorClass(price: number, range?: PriceRange): string {
   return "text-price-expensive";
 }
 
-export function priceColorHex(price: number, range?: PriceRange): string {
-  if (!range) return "#9B9489";
-  if (price <= range.cheapBelow) return "#4ADE80";
-  if (price <= range.midBelow) return "#FBBF24";
-  return "#F87171";
+/** 价格档位：cheap / fair / pricey（相对附近站点）。颜色之外的非颜色信号。 */
+export type PriceTier = "cheap" | "fair" | "pricey";
+
+/** 把价格归入档位；无 range（单站点/数据不足）时归为 fair 以免误判便宜。 */
+export function priceTier(price: number, range?: PriceRange): PriceTier {
+  if (!range) return "fair";
+  if (price <= range.cheapBelow) return "cheap";
+  if (price <= range.midBelow) return "fair";
+  return "pricey";
+}
+
+/** 档位的人类可读标签，作为颜色之外的文本信号（WCAG 1.4.1）。 */
+export const TIER_LABELS: Record<PriceTier, string> = {
+  cheap: "Cheap",
+  fair: "Fair",
+  pricey: "Pricey",
+};
+
+// 各主题下达到 WCAG AA（≥4.5:1）的档位色，供 Mapbox paint 等无法用 CSS 变量的场景使用。
+// 暗色面板沿用原始鲜亮色；浅色面板换成更深的同色系以保证对比度。
+const TIER_HEX_DARK: Record<PriceTier, string> = {
+  cheap: "#4ADE80",
+  fair: "#FBBF24",
+  pricey: "#F87171",
+};
+const TIER_HEX_LIGHT: Record<PriceTier, string> = {
+  cheap: "#15803D",
+  fair: "#B45309",
+  pricey: "#DC2626",
+};
+
+/**
+ * 按主题返回档位对应的十六进制颜色。
+ * 仅用于 Mapbox 样式表达式这类无法消费 CSS 变量的地方；
+ * DOM 文本应优先用 priceColorClass（自动跟随 data-theme 切换）。
+ */
+export function priceColorHex(
+  price: number,
+  range?: PriceRange,
+  theme: "dark" | "light" = "dark",
+): string {
+  if (!range) return theme === "light" ? "#6B6560" : "#9B9489";
+  const palette = theme === "light" ? TIER_HEX_LIGHT : TIER_HEX_DARK;
+  return palette[priceTier(price, range)];
+}
+
+/** 档位 → 主题色（供 MapView symbol paint 的 match 表达式直接取色）。 */
+export function tierHex(tier: PriceTier, theme: "dark" | "light"): string {
+  return (theme === "light" ? TIER_HEX_LIGHT : TIER_HEX_DARK)[tier];
 }
 
 /**

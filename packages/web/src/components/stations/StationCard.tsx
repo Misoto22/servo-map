@@ -74,7 +74,7 @@ export function StationCard({
           <div className="text-right">
             {fuelPrice ? (
               <>
-                <PriceTag cents={fuelPrice.price} size="md" />
+                <PriceTag cents={fuelPrice.price} size="md" showTier />
                 <p className="text-[10px] text-text-muted mt-0.5">
                   {timeAgo(fuelPrice.updated_at)}
                 </p>

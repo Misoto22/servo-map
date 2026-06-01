@@ -230,9 +230,41 @@ export default function Home() {
       </div>
     );
 
+  // 屏幕阅读器状态播报：加载 / 无结果 / 无覆盖 / 结果计数（polite，不打断当前朗读）
+  const liveMessage = loading
+    ? "Loading stations…"
+    : error
+      ? "Couldn’t load fuel prices."
+      : noResults
+        ? `No stations found for ${searchSuburb}.`
+        : noCoverage
+          ? "No live prices in this area yet."
+          : stations.length > 0
+            ? `Showing ${stations.length} station${stations.length !== 1 ? "s" : ""}.`
+            : "";
+
   return (
     <PriceRangeProvider stations={stations} selectedFuel={selectedFuel}>
-    <main className="relative h-screen w-screen overflow-hidden">
+      {/* 跳转到主内容：键盘用户可绕过浮层直达地图/列表 */}
+      <a href="#main-content" className="skip-link">
+        Skip to content
+      </a>
+
+      {/* 视觉隐藏的页面标题，给读屏/SEO 一个明确的 h1 */}
+      <h1 className="sr-only">
+        ServoMap — live Australian fuel prices near you
+      </h1>
+
+      {/* 无障碍状态播报区（视觉隐藏，polite 朗读加载/无结果/计数） */}
+      <div aria-live="polite" role="status" className="sr-only">
+        {liveMessage}
+      </div>
+
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="relative h-screen w-screen overflow-hidden outline-none"
+    >
       {/* 地图层 */}
       <MapView
         stations={stations}
@@ -343,8 +375,12 @@ export default function Home() {
         <LocationPrime onLocate={handleLocateMe} locating={geo.loading} />
       )}
 
-      {/* Mobile: 底部抽屉 */}
-      <BottomSheet>{panelContent}</BottomSheet>
+      {/* Mobile: 底部抽屉。选中站点详情时展开并把焦点移入内容（键盘可达） */}
+      <BottomSheet
+        activeContentKey={showDetail && activeStation ? activeStation.id : null}
+      >
+        {panelContent}
+      </BottomSheet>
     </main>
     </PriceRangeProvider>
   );
