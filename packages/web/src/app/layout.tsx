@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   title: "ServoMap — Australian Fuel Prices",
   description:
     "Find the cheapest fuel near you. Real-time petrol and diesel prices across Australia.",
-  metadataBase: new URL("https://servomap.com.au"),
+  metadataBase: new URL("https://servo-map.com"),
   openGraph: {
     title: "ServoMap — Australian Fuel Prices",
     description: "Find the cheapest fuel near you across Australia.",
