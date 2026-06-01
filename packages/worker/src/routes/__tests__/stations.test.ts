@@ -114,6 +114,13 @@ describe("GET /stations", () => {
     expect(body.meta).toEqual({ total: 4, limit: 100, offset: 0 });
   });
 
+  it("sets an edge Cache-Control header", async () => {
+    const { res } = await listStations("");
+    expect(res.headers.get("Cache-Control")).toBe(
+      "public, max-age=60, s-maxage=120, stale-while-revalidate=600",
+    );
+  });
+
   it("filters by state (comma-separated)", async () => {
     const { body } = await listStations("?state=qld");
     expect(body.data.map((s) => s.id)).toEqual(["qld-1"]);
