@@ -33,11 +33,13 @@ paths:
         - $ref: "#/components/parameters/State"
         - $ref: "#/components/parameters/Fuel"
         - $ref: "#/components/parameters/Brand"
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/Suburb"
+        - $ref: "#/components/parameters/Postcode"
         - $ref: "#/components/parameters/Lat"
         - $ref: "#/components/parameters/Lng"
         - $ref: "#/components/parameters/Radius"
         - $ref: "#/components/parameters/Sort"
-        - $ref: "#/components/parameters/FuelSort"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
       responses:
@@ -104,8 +106,6 @@ paths:
                       offset: 0
         "400":
           $ref: "#/components/responses/BadRequest"
-        "503":
-          $ref: "#/components/responses/DataUnavailable"
 
   /stations/{id}:
     get:
@@ -236,9 +236,13 @@ components:
     State:
       name: state
       in: query
-      description: Filter by state
+      description: |
+        Filter by one or more states. Comma-separated list of state codes
+        (e.g. `nsw` or `nsw,qld`). Omit to query the default live set
+        (`nsw,qld,tas,act`). Each code must be a valid `AustralianState`.
       schema:
-        $ref: "#/components/schemas/AustralianState"
+        type: string
+        example: nsw,qld
 
     Fuel:
       name: fuel
@@ -250,15 +254,39 @@ components:
     Brand:
       name: brand
       in: query
-      description: Filter by brand (case-insensitive)
+      description: Filter by brand (case-insensitive exact match)
       schema:
         type: string
         example: shell
 
+    Q:
+      name: q
+      in: query
+      description: Free-text search across suburb, station name, address, and postcode prefix.
+      schema:
+        type: string
+        example: burwood
+
+    Suburb:
+      name: suburb
+      in: query
+      description: Filter by suburb (case-insensitive substring match).
+      schema:
+        type: string
+        example: Casula
+
+    Postcode:
+      name: postcode
+      in: query
+      description: Filter by exact postcode.
+      schema:
+        type: string
+        example: "2170"
+
     Lat:
       name: lat
       in: query
-      description: Latitude for location-based search. Requires `lng`.
+      description: Latitude for location-based search. Must be provided together with `lng` and `radius`.
       schema:
         type: number
         format: double
@@ -269,7 +297,7 @@ components:
     Lng:
       name: lng
       in: query
-      description: Longitude for location-based search. Requires `lat`.
+      description: Longitude for location-based search. Must be provided together with `lat` and `radius`.
       schema:
         type: number
         format: double
@@ -280,32 +308,23 @@ components:
     Radius:
       name: radius
       in: query
-      description: Search radius in km. Only applies when `lat`/`lng` are provided.
+      description: Search radius in km. Required together with `lat` and `lng` (all three, or none).
       schema:
         type: number
-        default: 5
         minimum: 1
-        maximum: 50
+        maximum: 200
         example: 10
 
     Sort:
       name: sort
       in: query
       description: |
-        Sort order:
-        - `price`: sort by fuel price ascending. Requires `fuel` or `fuel_sort` to be set.
-        - `distance`: sort by distance ascending. Requires `lat`/`lng`.
+        Sort by a fuel's price. Only applied when `fuel` is also set (the
+        compared price is that fuel's). Ignored when `lat`/`lng` are
+        provided — geo queries are always sorted by distance ascending.
       schema:
         type: string
-        enum: [price, distance]
-        default: price
-
-    FuelSort:
-      name: fuel_sort
-      in: query
-      description: Which fuel type to sort by when `sort=price`. Defaults to `fuel` param value. Required when `sort=price` and `fuel` is not set.
-      schema:
-        $ref: "#/components/schemas/FuelType"
+        enum: [price_asc, price_desc]
 
     Limit:
       name: limit
@@ -454,15 +473,19 @@ components:
 
   responses:
     BadRequest:
-      description: Invalid request parameters
+      description: |
+        Invalid request parameters. `code` is one of:
+        `INVALID_STATE` (a `state` code is not a valid `AustralianState`),
+        `INVALID_FUEL` (`fuel` is not a valid `FuelType`), or
+        `INVALID_GEO` (`lat`/`lng`/`radius` were not all provided together).
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
           example:
             status: error
-            message: "Parameter 'sort=distance' requires 'lat' and 'lng' to be provided"
-            code: INVALID_PARAMS
+            message: "lat, lng, and radius must all be provided"
+            code: INVALID_GEO
 
     NotFound:
       description: Station not found
@@ -474,14 +497,3 @@ components:
             status: error
             message: Station not found
             code: STATION_NOT_FOUND
-
-    DataUnavailable:
-      description: Data temporarily unavailable
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-          example:
-            status: error
-            message: Fuel price data is temporarily unavailable
-            code: DATA_UNAVAILABLE
