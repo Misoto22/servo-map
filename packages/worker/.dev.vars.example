@@ -13,3 +13,7 @@ QLD_API_TOKEN=
 
 # WA FuelWatch is a PUBLIC RSS feed — no key or registration required.
 # https://www.fuelwatch.wa.gov.au/fuelwatch/fuelWatchRSS
+
+# Fine-grained GitHub PAT (repo Misoto22/servo-map, Actions: read+write) used by
+# the CF Cron Trigger scheduled handler to dispatch the ingest workflow.
+GH_DISPATCH_TOKEN=

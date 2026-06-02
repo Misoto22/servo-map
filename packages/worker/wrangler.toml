@@ -7,3 +7,9 @@ routes = [{ pattern = "api.servo-map.com", custom_domain = true }]
 binding = "KV"
 id = "7bb3949a4e20480fbde7fefeadd1fe41"
 preview_id = "2680cad997854e1c81dd38bd6a8cfaaa"
+
+# Reliable scheduler: CF Cron Triggers fire on time, then the scheduled handler
+# dispatches the GitHub Actions ingest (which runs on GH egress IPs the state
+# APIs are happy with). Requires the GH_DISPATCH_TOKEN secret.
+[triggers]
+crons = ["*/15 * * * *"]
