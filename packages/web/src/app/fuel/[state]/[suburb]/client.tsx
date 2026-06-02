@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { StationWithDistance, FuelType } from "@servo-map/shared";
 import { FUEL_TYPES } from "@servo-map/shared";
@@ -31,6 +31,8 @@ interface Props {
   faqs: { q: string; a: string }[];
   /** 邻近郊区交叉链接 */
   nearby: NearbySuburb[];
+  /** 预渲染的州级价格趋势区块（服务端组件），无数据时为 null */
+  priceTrend?: ReactNode;
 }
 
 export function SuburbPageClient({
@@ -43,6 +45,7 @@ export function SuburbPageClient({
   prose,
   faqs,
   nearby,
+  priceTrend,
 }: Props) {
   const [selectedFuel, setSelectedFuel] = useState<FuelType>("U91");
 
@@ -205,6 +208,9 @@ export function SuburbPageClient({
             );
           })}
         </div>
+
+        {/* 州级价格趋势 — 数据按州采集，标注为全州走势而非本郊区 */}
+        {priceTrend}
 
         {/* 邻近郊区交叉链接 — 内链密度 + 让爬虫沿郊区图谱深入 */}
         {nearby.length > 0 && (
