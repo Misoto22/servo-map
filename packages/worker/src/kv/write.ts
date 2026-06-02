@@ -2,19 +2,18 @@ import type { Station, StateMetadata, AustralianState } from "@servo-map/shared"
 import { KV_KEYS } from "./keys";
 import { readMetadata } from "./read";
 
-/** Write per-state station chunk + individual station keys */
+/**
+ * Write the per-state station chunk (one KV write per state).
+ * We intentionally do NOT write per-station keys anymore — GET /stations/:id
+ * derives the state from the id and reads it out of this chunk, which cuts
+ * ingest KV writes from ~one-per-station to one-per-state (~100x fewer).
+ */
 export async function writeStations(
   kv: KVNamespace,
   state: AustralianState,
   stations: Station[],
 ): Promise<void> {
-  // 写入按州分组的 chunk
   await kv.put(KV_KEYS.stationsByState(state), JSON.stringify(stations));
-
-  // 写入单独的 station keys（用于 GET /stations/:id）
-  for (const station of stations) {
-    await kv.put(KV_KEYS.stationById(station.id), JSON.stringify(station));
-  }
 }
 
 /** Write sorted unique brand list */

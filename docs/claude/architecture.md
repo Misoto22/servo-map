@@ -62,11 +62,13 @@ Defined in `packages/worker/src/kv/keys.ts`:
 
 | Key                       | Type                                       | Writer                         | Reader                                    |
 |---------------------------|--------------------------------------------|--------------------------------|-------------------------------------------|
-| `stations:<state>`        | `Station[]` (JSON)                         | ingest                         | `/api/v1/stations`                        |
-| `station:<id>`            | `Station` (JSON)                           | ingest (per station)           | `/api/v1/stations/:id`                    |
+| `stations:<state>`        | `Station[]` (JSON)                         | ingest (one write per state)   | `/api/v1/stations` **and** `/stations/:id` (derives state from the id prefix) |
 | `brands`                  | `string[]` (JSON, sorted unique)           | ingest                         | `/api/v1/brands`                          |
 | `metadata`                | `Record<AustralianState, StateMetadata>`   | ingest (merged)                | `/api/v1/metadata`                        |
+| `history:<state>`         | `PriceSnapshot[]` (rolling ~90 days)       | ingest (daily roll-up)         | `/api/v1/trends`                          |
 | `ref:<state>`             | adapter-defined, TTL-bounded               | optional adapter cache         | optional adapter cache                    |
+
+> No per-station `station:<id>` key — `/stations/:id` resolves from the state chunk, keeping ingest to ~one KV write per state.
 
 **Rules:**
 

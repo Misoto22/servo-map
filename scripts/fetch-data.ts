@@ -73,36 +73,6 @@ async function kvPut(key: string, value: string, retries = 3): Promise<void> {
   }
 }
 
-/** Bulk write KV pairs (max 10000 per request) */
-async function kvBulkWrite(
-  pairs: { key: string; value: string }[],
-): Promise<void> {
-  const accountId = requireEnv("CF_ACCOUNT_ID");
-  const namespaceId = requireEnv("CF_KV_NAMESPACE_ID");
-  const token = requireEnv("CF_API_TOKEN");
-
-  const CHUNK = 10000;
-  for (let i = 0; i < pairs.length; i += CHUNK) {
-    const chunk = pairs.slice(i, i + CHUNK);
-    const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${namespaceId}/bulk`;
-    const res = await fetch(url, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(chunk),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(`KV bulk write failed: ${res.status} — ${body}`);
-    }
-    console.log(
-      `[fetch-data] Bulk wrote ${Math.min(i + CHUNK, pairs.length)}/${pairs.length} keys`,
-    );
-  }
-}
-
 async function kvGet(key: string): Promise<string | null> {
   const accountId = requireEnv("CF_ACCOUNT_ID");
   const namespaceId = requireEnv("CF_KV_NAMESPACE_ID");
@@ -193,8 +163,7 @@ async function main() {
     process.exit(1);
   }
 
-  // 品牌列表（先写，避免 station keys rate limit 阻塞）
-  // 取自全部抓取结果：品牌是 UI 过滤项，超集无害
+  // 品牌列表 —— 取自全部抓取结果：品牌是 UI 过滤项，超集无害
   const brands = [...new Set(allStations.map((s) => s.brand))].sort();
   await kvPut(KV_KEYS.brands, JSON.stringify(brands));
 
@@ -202,17 +171,8 @@ async function main() {
   const merged = { ...existingMeta, ...metadataUpdates };
   await kvPut(KV_KEYS.metadata, JSON.stringify(merged));
 
-  // 写入单独的 station keys（用于 GET /stations/:id）—— 仅写实际更新的州，
-  // 与 stations:{state} chunk 保持一致
-  console.log(
-    `[fetch-data] Writing ${writtenStations.length} individual station keys via bulk API...`,
-  );
-  await kvBulkWrite(
-    writtenStations.map((s) => ({
-      key: KV_KEYS.stationById(s.id),
-      value: JSON.stringify(s),
-    })),
-  );
+  // GET /stations/:id 改为从 stations:{state} chunk 派生（见 kv/read.ts），
+  // 不再写单独的 station:{id} key —— 每轮 KV 写入从 ~每站一次降到每州一次。
 
   // 价格历史每日 roll-up（成功 ingest 后追加，幂等、每州每天一条）
   await capturePriceHistory(writtenByState);
