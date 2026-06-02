@@ -49,11 +49,19 @@ describe("KV round-trip", () => {
     expect(out).toEqual(fixtureStations);
   });
 
-  it("writeStations also writes per-id entries for readStationById", async () => {
+  it("readStationById resolves a station from its state chunk (no per-id keys)", async () => {
     const kv = createMemoryKV();
     await writeStations(kv, "nsw", fixtureStations);
     const one = await readStationById(kv, "nsw-1");
     expect(one).toEqual(fixtureStations[0]);
+  });
+
+  it("readStationById returns null for a missing id, unknown state, or junk", async () => {
+    const kv = createMemoryKV();
+    await writeStations(kv, "nsw", fixtureStations);
+    expect(await readStationById(kv, "nsw-999")).toBeNull(); // valid state, no match
+    expect(await readStationById(kv, "zz-1")).toBeNull(); // invalid state prefix
+    expect(await readStationById(kv, "garbage")).toBeNull(); // no state prefix
   });
 
   it("readStationsByState returns [] for unknown state", async () => {
