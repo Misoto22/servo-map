@@ -3,9 +3,14 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
-    // Mirror the tsconfig `@/*` -> `./src/*` alias so tests can import like app code.
     alias: {
+      // Mirror the tsconfig `@/*` -> `./src/*` alias so tests import like app code.
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // Resolve the workspace package to its TS source so `--filter web test`
+      // runs without pre-building shared (CI builds it first; this is for local).
+      "@servo-map/shared": fileURLToPath(
+        new URL("../shared/src/index.ts", import.meta.url),
+      ),
     },
   },
   test: {

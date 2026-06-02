@@ -56,9 +56,9 @@ export function PriceTrendChart({ series, fuel, state, label }: Props) {
 
   const innerW = VIEW_W - PAD_X * 2;
   const innerH = VIEW_H - PAD_Y * 2;
-  const n = snapshots.length;
+  const n = snapshots.length; // guaranteed >= 2 past the guard above
 
-  const x = (i: number) => PAD_X + (n === 1 ? 0 : (i / (n - 1)) * innerW);
+  const x = (i: number) => PAD_X + (i / (n - 1)) * innerW;
   const y = (price: number) =>
     PAD_Y + innerH - ((price - domainLo) / domainSpan) * innerH;
 
