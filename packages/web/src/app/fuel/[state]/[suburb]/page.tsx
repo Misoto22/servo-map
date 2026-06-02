@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import type { StationWithDistance, AustralianState } from "@servo-map/shared";
-import { getStations, getMetadata } from "@/lib/api";
+import type {
+  StationWithDistance,
+  AustralianState,
+  PriceSnapshot,
+} from "@servo-map/shared";
+import { getStations, getMetadata, getTrends } from "@/lib/api";
 import { latestUpdatedAt } from "@/lib/coverage";
 import { SITE_URL } from "@/lib/site";
+import { PriceTrendSection } from "@/components/stations/PriceTrendSection";
 import {
   slugToSuburb,
   suburbToSlug,
@@ -75,6 +80,20 @@ async function loadStateUpdatedAt(state: string): Promise<string | null> {
   }
 }
 
+/**
+ * State-level U91 price trend. History is keyed by state, so this is the
+ * state's series — the UI labels it as such. Best-effort: an empty array on
+ * failure means the trend section is omitted, never blocking the page.
+ */
+async function loadStateTrend(state: string): Promise<PriceSnapshot[]> {
+  try {
+    const { data } = await getTrends(state, "U91");
+    return data.series;
+  } catch {
+    return [];
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { state, suburb } = await params;
   const suburbName = toTitleCase(suburb);
@@ -96,10 +115,11 @@ export default async function SuburbPage({ params }: Props) {
   const suburbName = toTitleCase(suburb);
   const stateUpper = state.toUpperCase();
 
-  const [stations, stateStations, lastUpdated] = await Promise.all([
+  const [stations, stateStations, lastUpdated, trendSeries] = await Promise.all([
     loadSuburbStations(state, suburb),
     loadStateStations(state),
     loadStateUpdatedAt(state),
+    loadStateTrend(state),
   ]);
   if (stations.length === 0) notFound();
 
@@ -207,6 +227,15 @@ export default async function SuburbPage({ params }: Props) {
         prose={prose}
         faqs={faqs}
         nearby={nearby}
+        priceTrend={
+          trendSeries.length > 0 ? (
+            <PriceTrendSection
+              series={trendSeries}
+              fuel="U91"
+              stateLabel={stateUpper}
+            />
+          ) : null
+        }
       />
     </>
   );

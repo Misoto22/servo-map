@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AUSTRALIAN_STATES, type AustralianState } from "@servo-map/shared";
-import { getStations, getMetadata } from "@/lib/api";
+import type { PriceSnapshot } from "@servo-map/shared";
+import { getStations, getMetadata, getTrends } from "@/lib/api";
 import { latestUpdatedAt, liveStates, STATE_LABELS } from "@/lib/coverage";
 import { SITE_URL } from "@/lib/site";
 import { uniqueSuburbs } from "@/lib/seo";
 import { FreshnessBadge } from "@/components/stations/FreshnessBadge";
+import { PriceTrendSection } from "@/components/stations/PriceTrendSection";
 import { timeAgo } from "@/lib/utils";
 
 // ISR: regenerate at most every 15 minutes, generate unknown states on demand.
@@ -74,6 +76,16 @@ export default async function StateHubPage({ params }: Props) {
 
   const stationTotal = suburbs.reduce((sum, s) => sum + s.stationCount, 0);
   const stateLabel = STATE_LABELS[stateLower as AustralianState] ?? stateUpper;
+
+  // State-level price trend (default fuel U91). Best-effort: omit the section
+  // entirely on fetch failure or empty series so the hub never half-renders it.
+  let trendSeries: PriceSnapshot[] = [];
+  try {
+    const { data } = await getTrends(stateLower, "U91");
+    trendSeries = data.series;
+  } catch {
+    trendSeries = [];
+  }
 
   // BreadcrumbList JSON-LD: Home › State hub
   const breadcrumbLd = {
@@ -174,6 +186,15 @@ export default async function StateHubPage({ params }: Props) {
               </li>
             ))}
           </ul>
+
+          {/* State-level price trend — labelled honestly as the whole state */}
+          {trendSeries.length > 0 && (
+            <PriceTrendSection
+              series={trendSeries}
+              fuel="U91"
+              stateLabel={stateUpper}
+            />
+          )}
         </main>
 
         {/* Footer */}
