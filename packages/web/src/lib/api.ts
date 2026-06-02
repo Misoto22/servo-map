@@ -5,6 +5,8 @@ import type {
   PaginationMeta,
   StateMetadata,
   AustralianState,
+  PriceTrend,
+  FuelType,
 } from "@servo-map/shared";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8787";
@@ -53,4 +55,18 @@ export async function getMetadata(): Promise<
   ApiResponse<Record<AustralianState, StateMetadata>>
 > {
   return fetchApi("/api/v1/metadata");
+}
+
+/**
+ * Daily price trend for a state. History is captured per state, so the series
+ * is a state-level daily aggregate — not suburb-specific. `fuel` narrows the
+ * series to a single fuel type.
+ */
+export async function getTrends(
+  state: string,
+  fuel?: FuelType,
+): Promise<ApiResponse<PriceTrend>> {
+  const search = new URLSearchParams({ state });
+  if (fuel) search.set("fuel", fuel);
+  return fetchApi(`/api/v1/trends?${search.toString()}`);
 }
