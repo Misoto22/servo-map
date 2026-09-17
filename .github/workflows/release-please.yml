@@ -1,0 +1,38 @@
+# Open and maintain the release pull request with the fleet release bot.
+#
+# A Conventional Commit landing on main makes the bot open or update
+# "chore(main): release X.Y.Z"; merging that pull request writes version.txt,
+# the three workspace package.json versions, the CHANGELOG.md entry, tags
+# vX.Y.Z and publishes the GitHub Release.
+#
+# The release must be created by the misoto22-release-bot App token rather than
+# GITHUB_TOKEN: anything created with GITHUB_TOKEN triggers no further workflow
+# runs, so an `on: release: published` consumer would silently never fire.
+#
+# release-type is `simple` because this is one product in three workspace
+# packages and the root package.json is a private script launcher with no
+# version of its own. version.txt is the single version; the three packages
+# follow it through extra-files.
+#
+# This repository has never been tagged, so release-please-config.json carries a
+# bootstrap-sha pinned to the main HEAD this workflow was added at. Commits
+# before it are not considered.
+
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  release:
+    uses: Misoto22/ci/.github/workflows/release.yml@168697c01c8c24ce02a24a4e7b7b773e65c5cefe # v0.2.0
+    with:
+      app-client-id: ${{ vars.APP_CLIENT_ID }}
+    secrets:
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
